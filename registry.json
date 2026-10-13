@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "plugins": [
+    {
+      "id": "kpatdev-quota-router",
+      "name": "Quota Router",
+      "description": "Quota-aware routing and session affinity for Claude and Codex OAuth accounts, with a built-in dashboard.",
+      "author": "kpatdev",
+      "repository": "https://github.com/kpatdev/quota-router",
+      "homepage": "https://github.com/kpatdev/quota-router",
+      "license": "MIT",
+      "tags": ["Scheduler", "Quota", "Claude", "Codex", "Management"]
+    }
+  ]
+}

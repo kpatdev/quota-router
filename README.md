@@ -79,6 +79,42 @@ It never sends inference requests to measure quota and never refreshes or writes
 
 ## Docker
 
+### Install through a custom store
+
+Once this repository has a published release containing the platform ZIPs and
+`checksums.txt`, add this custom store URL in CLIProxyAPI's plugin store:
+
+```text
+https://raw.githubusercontent.com/kpatdev/quota-router/main/registry.json
+```
+
+Alternatively, merge these settings into your existing Docker deployment's
+`config.yaml` (preserve any existing store sources and plugin configs):
+
+```yaml
+plugins:
+  enabled: true
+  dir: /CLIProxyAPI/plugins
+  store-sources:
+    - https://raw.githubusercontent.com/kpatdev/quota-router/main/registry.json
+  configs:
+    kpatdev-quota-router:
+      enabled: true
+      priority: 10
+      mode: shadow
+```
+
+Keep `/CLIProxyAPI/plugins` mounted to a persistent host directory or Docker
+volume. Restart CPA after changing its deployment configuration, then install
+**Quota Router** from the store. Open the dashboard below, review Activity while
+using your CLI normally, and switch Settings to `active` when ready.
+
+The registry must be pushed to `main` before that URL works. A registry alone
+does not make an unpublished plugin installable; the store downloads binaries
+from this repository's latest published GitHub release.
+
+### Manual installation
+
 [`deploy/docker-compose.yml`](deploy/docker-compose.yml) runs the official `eceasy/cli-proxy-api` image with the plugin:
 
 ```sh
