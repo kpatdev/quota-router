@@ -69,6 +69,7 @@ let nowTimer: number | undefined;
 function subscribeNow(fn: () => void) {
   nowSubs.add(fn);
   if (nowTimer === undefined) {
+    nowValue = Date.now();
     nowTimer = window.setInterval(() => {
       nowValue = Date.now();
       nowSubs.forEach((f) => f());

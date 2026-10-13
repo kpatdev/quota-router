@@ -42,7 +42,7 @@ ifeq ($(filter $(TARGET),$(TARGETS)),)
 $(error TARGET must be one of: $(TARGETS))
 endif
 
-.PHONY: test linux-test build zip checksums release-assets native-test host-test load-test cpa version clean
+.PHONY: demo web test linux-test build zip checksums release-assets native-test host-test load-test cpa version clean
 
 test: $(TOOLCHAIN)
 	$(CHECKS)
@@ -120,3 +120,12 @@ version:
 
 clean:
 	rm -rf dist coverage.out
+
+# Local dashboard demo: official CPA + plugin + synthetic upstreams and traffic on http://127.0.0.1:18318.
+demo: cpa
+	$(LINUX_ONLY)
+	docker run --rm -it --platform linux/$(TARGET_ARCH) -p 127.0.0.1:18318:18318 --add-host api.anthropic.com:127.0.0.1 --add-host chatgpt.com:127.0.0.1 -e PLUGIN_ISOLATED_TEST=1 \
+		-v "$(CURDIR):/src" -w /src $(IMAGE) python3 tests/demo_stack.py dist/cpa/$(CPA_ASSET) $(LIB)
+
+web:
+	cd web && pnpm install --frozen-lockfile && pnpm build
