@@ -385,6 +385,9 @@ table.grid { width: 100%; border-collapse: collapse; }
   .topbar { padding: 10px 16px; }
   .search .input { width: 160px; }
   .hide-md { display: none; }
+  .acct-name { max-width: 170px; }
+  .grid .w-meter { min-width: 104px; }
+  .grid th, .grid td { padding-left: 10px; padding-right: 10px; }
 }
 @media (max-width: 640px) {
   /* Tables become stacked cards: header hidden, each cell labeled. */
