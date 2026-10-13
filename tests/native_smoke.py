@@ -182,7 +182,7 @@ def main():
         allocations.remove(pointer)
         libc.free(pointer)
 
-    with tempfile.TemporaryDirectory(prefix="quota-reset-router-native-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="kpatdev-quota-router-native-") as tmp:
         cert, key = Path(os.environ["SSL_CERT_FILE"]), Path(tmp) / "key.pem"
         subprocess.run(
             [
@@ -242,7 +242,7 @@ def main():
                 "management.handle",
                 {
                     "Method": "GET",
-                    "Path": "/v0/management/plugins/quota-reset-router/status",
+                    "Path": "/v0/management/plugins/kpatdev-quota-router/status",
                 },
             )
             return json.loads(base64.b64decode(result["Body"]))

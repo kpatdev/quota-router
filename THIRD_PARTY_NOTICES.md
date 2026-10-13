@@ -1,6 +1,6 @@
 # Third-party notices
 
-Binary releases of quota-reset-router statically link code from the projects below.
+Binary releases of kpatdev-quota-router statically link code from the projects below.
 
 ## CLIProxyAPI plugin SDK
 

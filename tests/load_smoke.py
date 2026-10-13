@@ -22,7 +22,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-PLUGIN = "quota-reset-router"
+PLUGIN = "kpatdev-quota-router"
 EXTENSIONS = {"linux": ".so", "darwin": ".dylib", "windows": ".dll"}
 CPA_ARCH = {"amd64": "amd64", "arm64": "aarch64"}
 MANAGEMENT_KEY = "load-smoke-management-key"

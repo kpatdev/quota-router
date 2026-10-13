@@ -156,7 +156,7 @@ rate-limited manual refresh.
 
 ## Persistence
 
-State lives in `state_dir` (default `plugins/quota-reset-router-data`, which the
+State lives in `state_dir` (default `plugins/kpatdev-quota-router-data`, which the
 stock compose file already mounts as a volume):
 
 - `state.json`: bindings, account health, quota snapshots, quota history, settings
@@ -176,13 +176,13 @@ complexity for no integrity gain over atomic rename (ADR 0003).
 ## Dashboard
 
 - Static React + TypeScript bundle embedded in the plugin binary and served as
-  plugin resources under `/v0/resource/plugins/quota-reset-router/`. Resources
+  plugin resources under `/v0/resource/plugins/kpatdev-quota-router/`. Resources
   are unauthenticated, so they contain no data.
 - All data comes from management routes under
-  `/v0/management/plugins/quota-reset-router/`, which CPA authenticates with the
+  `/v0/management/plugins/kpatdev-quota-router/`, which CPA authenticates with the
   management key. The key is held in memory only.
 - Settings are written through CPA's own `PATCH
-  /v0/management/plugins/quota-reset-router/config`, so `config.yaml` stays the
+  /v0/management/plugins/kpatdev-quota-router/config`, so `config.yaml` stays the
   single source of truth and CPA hot-reloads the plugin. The plugin validates
   first via its own endpoint.
 

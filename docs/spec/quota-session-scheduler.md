@@ -6,7 +6,7 @@ Tickets: [`.scratch/quota-session-scheduler/issues/`](../../.scratch/quota-sessi
 ## Problem Statement
 
 An operator runs CLIProxyAPI (CPA) with several Claude and Codex subscription
-accounts and points Claude Code and Codex at it. The existing quota-reset-router
+accounts and points Claude Code and Codex at it. The existing kpatdev-quota-router
 plugin picks the account whose weekly quota resets soonest **on every request**.
 Agent threads therefore hop between accounts mid-conversation, which throws away
 the provider-side prompt cache, makes cost and latency unpredictable, and hides
@@ -139,7 +139,7 @@ rejected or the snapshot is at 100%, otherwise rate-limited cooldown; 408/5xx/0
 **Policies.** As in the architecture document. Host priority always first;
 `manual_priority` adds plugin `account_priority` next; then the base policy.
 
-**Config** (flat keys under `plugins.configs.quota-reset-router`; existing keys
+**Config** (flat keys under `plugins.configs.kpatdev-quota-router`; existing keys
 kept):
 
 | Key | Default | Range |
@@ -162,11 +162,11 @@ kept):
 | `schedule_across_priorities` | `true` | bool |
 | `account_priority` | `{}` | map auth ID → int −1000..1000 |
 | `account_alias` | `{}` | map auth ID → string ≤ 40 printable chars |
-| `state_dir` | `plugins/quota-reset-router-data` | path |
+| `state_dir` | `plugins/kpatdev-quota-router-data` | path |
 | `activity_retention` | `1000` | 100–20000 decisions |
 | `history_retention` | `168h` | 1h–720h |
 
-**Management API** (all under `/v0/management/plugins/quota-reset-router/`,
+**Management API** (all under `/v0/management/plugins/kpatdev-quota-router/`,
 CPA-authenticated): `GET status` (legacy shape preserved as a subset),
 `GET overview`, `GET sessions`, `GET activity`, `GET decision?id=`,
 `GET usage?window=`, `GET settings`, `POST settings/validate`, `POST refresh`,
@@ -218,7 +218,8 @@ the plugin reports the new config generation.
 
 ## Further Notes
 
-- Plugin ID stays `quota-reset-router` so existing `plugins.configs` blocks and
-  the plugin file name keep working.
+- Plugin ID is `kpatdev-quota-router` to avoid the upstream registry ID collision.
+  Existing config keys, library names, and default state directories must be migrated
+  as described in README.md (user-approved 2026-10-13).
 - Quota endpoints are undocumented; parsers are tolerant of unknown fields and
   fail closed (unknown) on missing required windows.

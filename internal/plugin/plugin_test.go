@@ -245,7 +245,7 @@ func TestShadowModeNeverRoutes(t *testing.T) {
 	if got := g.pick("claude", "m", headersFor("claude", "s"), "A"); got != "" {
 		t.Fatalf("shadow mode routed to %q", got)
 	}
-	code, body := g.mgmt("GET", "/v0/management/plugins/quota-reset-router/activity", nil, "")
+	code, body := g.mgmt("GET", "/v0/management/plugins/kpatdev-quota-router/activity", nil, "")
 	if code != 200 || !strings.Contains(body, `"applied":false`) {
 		t.Fatalf("shadow decision not recorded: %d %s", code, body)
 	}
@@ -319,7 +319,7 @@ func TestNoSecretsInAnyManagementResponseOrStateFile(t *testing.T) {
 	g.pick("claude", "claude-opus-4-6", h, "A", "B")
 	g.usage("claude", "claude-opus-4-6", "A", "claude:raw-session-SECRET", 200, http.Header{"Set-Cookie": {"c=" + secretToken}})
 	g.usage("claude", "claude-opus-4-6", "B", "claude:raw-session-SECRET", 500, nil)
-	base := "/v0/management/plugins/quota-reset-router"
+	base := "/v0/management/plugins/kpatdev-quota-router"
 	var bodies []string
 	for _, path := range []string{"/status", "/overview", "/accounts", "/sessions", "/activity", "/usage", "/settings", "/export"} {
 		code, body := g.mgmt("GET", base+path, nil, "")
@@ -360,7 +360,7 @@ func TestManagementMutationsAreGuarded(t *testing.T) {
 	g.register("mode: active")
 	g.refreshQuota()
 	g.pick("claude", "m", headersFor("claude", "s"), "A")
-	base := "/v0/management/plugins/quota-reset-router"
+	base := "/v0/management/plugins/kpatdev-quota-router"
 	if code, _ := g.mgmt("POST", base+"/sessions/clear", nil, `{}`); code != http.StatusPreconditionRequired {
 		t.Fatalf("clear without confirmation: %d", code)
 	}
@@ -397,13 +397,13 @@ func TestManagementMutationsAreGuarded(t *testing.T) {
 func TestResourcesAreStaticAndHardened(t *testing.T) {
 	g := newRig(t, t.TempDir())
 	g.register("mode: shadow")
-	req := pluginapi.ManagementRequest{Method: "GET", Path: "/v0/resource/plugins/quota-reset-router/index.html"}
+	req := pluginapi.ManagementRequest{Method: "GET", Path: "/v0/resource/plugins/kpatdev-quota-router/index.html"}
 	var resp pluginapi.ManagementResponse
 	_ = json.Unmarshal(g.call(pluginabi.MethodManagementHandle, req), &resp)
 	if resp.StatusCode != 200 || !strings.Contains(resp.Headers.Get("Content-Security-Policy"), "default-src 'self'") || resp.Headers.Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatalf("resource headers: %d %+v", resp.StatusCode, resp.Headers)
 	}
-	req.Path = "/v0/resource/plugins/quota-reset-router/../../management/x"
+	req.Path = "/v0/resource/plugins/kpatdev-quota-router/../../management/x"
 	_ = json.Unmarshal(g.call(pluginabi.MethodManagementHandle, req), &resp)
 	if strings.Contains(string(resp.Body), "SECRET") {
 		t.Fatal("traversal served data")
@@ -445,7 +445,7 @@ func TestConcurrentPicksUsageAndReconfigure(t *testing.T) {
 					g.call(pluginabi.MethodPluginReconfigure, map[string]any{"config_yaml": []byte("mode: active\nstate_dir: " + g.dir)})
 				}
 				if j%13 == 0 {
-					g.mgmt("GET", "/v0/management/plugins/quota-reset-router/overview", nil, "")
+					g.mgmt("GET", "/v0/management/plugins/kpatdev-quota-router/overview", nil, "")
 				}
 			}
 		}(i)

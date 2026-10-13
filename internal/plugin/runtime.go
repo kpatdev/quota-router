@@ -49,24 +49,25 @@ type Runtime struct {
 	Now        func() time.Time
 	NewFetcher func() quota.Fetcher
 
-	mu        sync.Mutex
-	cfg       config.Config
-	router    *router.Router
-	tel       *telemetry.Recorder
-	store     *store.Store
-	loadRes   string
-	fetcher   quota.Fetcher
-	server    *mgmt.Server
-	cancel    context.CancelFunc
-	done      chan struct{}
-	wake      chan struct{}
-	started   time.Time
-	saveErr   string
-	savedAt   time.Time
-	panics    atomic.Uint64
-	failed    atomic.Bool
-	running   atomic.Bool
-	configErr string
+	mu          sync.Mutex
+	cfg         config.Config
+	router      *router.Router
+	tel         *telemetry.Recorder
+	store       *store.Store
+	loadRes     string
+	fetcher     quota.Fetcher
+	server      *mgmt.Server
+	cancel      context.CancelFunc
+	done        chan struct{}
+	wake        chan struct{}
+	started     time.Time
+	saveErr     string
+	savedAt     time.Time
+	panics      atomic.Uint64
+	failed      atomic.Bool
+	running     atomic.Bool
+	rosterEmpty atomic.Bool
+	configErr   string
 }
 
 func (p *Runtime) now() time.Time {
@@ -320,6 +321,7 @@ func (p *Runtime) loop(ctx context.Context, wake chan struct{}, fetcher quota.Fe
 	defer tick.Stop()
 	var lastRoster, lastHistory, lastHousekeep, lastSample time.Time
 	lastRoster = time.Now()
+	started := lastRoster
 	for {
 		select {
 		case <-ctx.Done():
@@ -327,9 +329,17 @@ func (p *Runtime) loop(ctx context.Context, wake chan struct{}, fetcher quota.Fe
 		case <-tick.C:
 		}
 		now := time.Now()
-		if now.Sub(lastRoster) >= rosterEvery {
+		// CPA loads auth files after plugins register, so poll the roster
+		// quickly until it shows accounts (or the first minute passes).
+		every := rosterEvery
+		if p.rosterEmpty.Load() && now.Sub(started) < time.Minute {
+			every = 2 * time.Second
+		}
+		if now.Sub(lastRoster) >= every {
 			lastRoster = now
-			p.SyncRoster()
+			if p.SyncRoster() > 0 {
+				p.wakePoller()
+			}
 		}
 		p.mu.Lock()
 		r, tel, st := p.router, p.tel, p.store
@@ -372,18 +382,23 @@ func (p *Runtime) pollLoop(ctx context.Context, wake chan struct{}, fetcher quot
 	}
 }
 
-// SyncRoster reads the credential list from CPA.
-func (p *Runtime) SyncRoster() {
+// SyncRoster reads the credential list from CPA and returns how many
+// Claude/Codex accounts it found.
+func (p *Runtime) SyncRoster() int {
 	entries, err := p.Host.List()
 	if err != nil {
 		p.router.RosterFailed("credential_list_failed")
-		return
+		return 0
 	}
+	n := 0
 	roster := make([]router.RosterEntry, 0, len(entries))
 	for _, e := range entries {
 		provider := e.Provider
 		if provider == "" {
 			provider = e.Type
+		}
+		if p := strings.ToLower(strings.TrimSpace(provider)); p == "claude" || p == "codex" {
+			n++
 		}
 		roster = append(roster, router.RosterEntry{
 			ID: e.ID, AuthIndex: e.AuthIndex, Provider: provider, Name: e.Name, Label: e.Label, Email: e.Email,
@@ -393,6 +408,20 @@ func (p *Runtime) SyncRoster() {
 		})
 	}
 	p.router.SyncRoster(roster)
+	p.rosterEmpty.Store(n == 0)
+	return n
+}
+
+func (p *Runtime) wakePoller() {
+	p.mu.Lock()
+	wake := p.wake
+	p.mu.Unlock()
+	if wake != nil {
+		select {
+		case wake <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // PollDue polls every account that is due, a few at a time.
@@ -476,15 +505,7 @@ func (p *Runtime) sampleQuota() {
 func (p *Runtime) refresh(authID string) (int, time.Duration) {
 	n, wait := p.router.RequestRefresh(authID)
 	if n > 0 {
-		p.mu.Lock()
-		wake := p.wake
-		p.mu.Unlock()
-		if wake != nil {
-			select {
-			case wake <- struct{}{}:
-			default:
-			}
-		}
+		p.wakePoller()
 	}
 	return n, wait
 }

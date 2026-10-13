@@ -1,8 +1,8 @@
-# quota-reset-router
+# kpatdev-quota-router
 
 A [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) scheduler plugin for Claude and Codex OAuth accounts. It routes each request to the eligible account whose **weekly quota resets soonest**, so quota that would otherwise expire unused is consumed first.
 
-- **Author:** Shreyash ([webdevcaptain](https://github.com/webdevcaptain))
+- **Author:** kpatdev (fork of Shreyash/[webdevcaptain](https://github.com/webdevcaptain)'s quota-reset-router)
 - **License:** [MIT](LICENSE)
 
 > Not affiliated with or endorsed by Anthropic, OpenAI, or CLIProxyAPI. Check each provider's terms before routing subscription credentials through a proxy.
@@ -45,10 +45,14 @@ Ordering is not guaranteed in these cases. Quota can also change between refresh
 - The Intel macOS build uses a patched Go toolchain. See [Intel Macs](#intel-macs).
 - Direct network access to both quota endpoints. Credentials with `proxy_url` or `base_url` are skipped. Quota polling ignores CLIProxyAPI's `proxy-url` and proxy environment variables.
 
+## Plugin ID migration
+
+This fork uses `kpatdev-quota-router` to avoid colliding with upstream `quota-reset-router` in the plugin store. Stop CPA, replace the old library with the renamed library, and move the configuration block to `plugins.configs.kpatdev-quota-router`. If using the default state directory, move existing data from `plugins/quota-reset-router-data` to `plugins/kpatdev-quota-router-data`, or set `state_dir` explicitly to the existing directory. Do not load both libraries. Management and resource routes use the new ID.
+
 ## Install
 
-1. Download `quota-reset-router_<version>_<os>_<arch>.zip` for your platform from the [latest release](https://github.com/WebDevCaptain/quota-reset-router/releases/latest) and check it against `checksums.txt`. Optionally verify its build provenance: `gh attestation verify <zip> --repo WebDevCaptain/quota-reset-router`.
-2. Extract `quota-reset-router.so` (Linux), `quota-reset-router.dylib` (macOS), or `quota-reset-router.dll` (Windows) into CLIProxyAPI's plugin directory (`plugins.dir`) as a regular file. Symlinks are not loaded.
+1. Download `kpatdev-quota-router_<version>_<os>_<arch>.zip` for your platform from the [latest release](https://github.com/kpatdev/quota-router/releases/latest) and check it against `checksums.txt`. Optionally verify its build provenance: `gh attestation verify <zip> --repo WebDevCaptain/kpatdev-quota-router`.
+2. Extract `kpatdev-quota-router.so` (Linux), `kpatdev-quota-router.dylib` (macOS), or `kpatdev-quota-router.dll` (Windows) into CLIProxyAPI's plugin directory (`plugins.dir`) as a regular file. Symlinks are not loaded.
 3. Merge into `config.yaml`:
 
    ```yaml
@@ -56,7 +60,7 @@ Ordering is not guaranteed in these cases. Quota can also change between refresh
      enabled: true
      dir: plugins
      configs:
-       quota-reset-router:
+       kpatdev-quota-router:
          enabled: true
          priority: 10
          mode: shadow
@@ -79,14 +83,14 @@ Ordering is not guaranteed in these cases. Quota can also change between refresh
 Change settings without a restart:
 
 ```text
-PATCH /v0/management/plugins/quota-reset-router/config
+PATCH /v0/management/plugins/kpatdev-quota-router/config
 {"mode": "active"}
 ```
 
 ## Status
 
 ```text
-GET /v0/management/plugins/quota-reset-router/status
+GET /v0/management/plugins/kpatdev-quota-router/status
 ```
 
 Requires Management API authentication. Returns the version, mode, selection policy, per-account quota snapshots, refresh errors, the last decision, and routing counters. Credential IDs are included (often file names containing email addresses). OAuth tokens are not.
@@ -96,7 +100,7 @@ Requires Management API authentication. Returns the version, mode, selection pol
 - **Disable** without a restart. CLIProxyAPI's configured routing resumes after it reloads the configuration:
 
   ```text
-  PATCH /v0/management/plugins/quota-reset-router/enabled
+  PATCH /v0/management/plugins/kpatdev-quota-router/enabled
   {"enabled": false}
   ```
 
@@ -121,10 +125,10 @@ Build and test targets take `TARGET`: `linux_amd64` (default), `linux_arm64`, `d
 ```sh
 make test         # gofmt, go vet, and unit tests with the race detector
 make linux-test   # same, in the pinned Linux container
-make build        # writes dist/<target>/quota-reset-router.<so|dylib|dll>
+make build        # writes dist/<target>/kpatdev-quota-router.<so|dylib|dll>
 make native-test  # Linux only: loads the library through the plugin C ABI
 make host-test    # Linux, or macOS CI: runs the official CLIProxyAPI release with the library
-make zip          # writes dist/release/quota-reset-router_<version>_<target>.zip
+make zip          # writes dist/release/kpatdev-quota-router_<version>_<target>.zip
 make load-test    # loads the zip into the official CLIProxyAPI; TARGET must match this machine
 ```
 
@@ -142,7 +146,7 @@ The `darwin_amd64` library is built with Go 1.26.8 plus [`scripts/go-tls-slot.pa
 
 ## Release
 
-The CLIProxyAPI plugin store installs from this repository's latest published GitHub release. Each release contains `checksums.txt` and one `quota-reset-router_<version>_<os>_<arch>.zip` per target, holding the plugin, `LICENSE`, and `THIRD_PARTY_NOTICES.md`.
+The CLIProxyAPI plugin store installs from this repository's latest published GitHub release. Each release contains `checksums.txt` and one `kpatdev-quota-router_<version>_<os>_<arch>.zip` per target, holding the plugin, `LICENSE`, and `THIRD_PARTY_NOTICES.md`.
 
 1. Set `pluginVersion` in `config.go`, for example `0.2.0`, and merge to `main`.
 2. Push the tag `v<version>`. CI builds and tests every target, attests build provenance, and creates a draft release with the assets.

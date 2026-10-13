@@ -1,5 +1,5 @@
 // Package config decodes and validates the plugin's settings block
-// (plugins.configs.quota-reset-router in CPA's config.yaml).
+// (plugins.configs.kpatdev-quota-router in CPA's config.yaml).
 package config
 
 import (
@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	PluginID = "quota-reset-router"
+	PluginID = "kpatdev-quota-router"
 
 	ModeShadow = "shadow"
 	ModeActive = "active"

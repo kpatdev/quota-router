@@ -133,7 +133,7 @@ jobs:
         with:
           name: cpa-windows_amd64
           path: dist/cpa
-      - run: python tests/load_smoke.py dist/cpa/CLIProxyAPI_*_windows_amd64.zip dist/cpa/checksums.txt dist/release/quota-reset-router_*_windows_amd64.zip
+      - run: python tests/load_smoke.py dist/cpa/CLIProxyAPI_*_windows_amd64.zip dist/cpa/checksums.txt dist/release/kpatdev-quota-router_*_windows_amd64.zip
 
   # Publishing stays manual: this job only creates a draft release.
   release:
