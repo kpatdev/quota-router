@@ -22,11 +22,11 @@
 
 **Snapshot** — the latest windows for an account, with source (poll or passive) and observation time.
 
-**Availability** — the classification of an account for a model: `ready`, `exhausted`, `reset_pending`, `stale`, `unknown`.
+**Availability** — the classification of an account for a model: `ready`, `exhausted`, `reset_pending`, `stale`, `unknown`. In code: `quota.State`; in the API: `quota_state`.
 
 **Usable** — offered, not disabled, not auth-failed, not exhausted for the model, circuit not open.
 
-**Policy** — the ranking for new sessions: reset-first, quota-pressure, balanced, manual-priority.
+**Policy** — the ranking for new sessions: reset-first, quota-pressure, balanced, manual-priority. The config key is `strategy` (kept for compatibility); `rebind_policy` is unrelated and governs when a session moves.
 
 **Decision** — the record of one pick: outcome, chosen account, ranked and skipped candidates with reasons.
 

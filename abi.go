@@ -42,6 +42,7 @@ func cliproxyPluginCall(method *C.char, request *C.uint8_t, length C.size_t, res
 		return 1
 	}
 	response.ptr, response.len = nil, 0
+	// Literal envelopes: the recovery path must not depend on the encoder that may have panicked.
 	defer func() {
 		if recover() != nil {
 			if method != nil && C.GoString(method) == pluginabi.MethodSchedulerPick {
