@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -101,6 +102,7 @@ type eval struct {
 	offered    bool
 	usable     bool
 	rankable   bool
+	lowRoom    bool
 	permanent  bool
 	cause      string
 	assessment quota.Assessment
@@ -147,6 +149,16 @@ func (r *Router) Pick(req PickRequest) Decision {
 		order = append(order, e)
 	}
 	ranked := r.rank(order, now, r.cfg.Strategy)
+	if len(ranked) == 0 {
+		// Every ready account is below the new-session minimum: still prefer
+		// one of them by policy over handing the request back to the host.
+		for _, e := range order {
+			if e.lowRoom {
+				e.rankable, e.cause = true, ""
+			}
+		}
+		ranked = r.rank(order, now, r.cfg.Strategy)
+	}
 	d.Ranked = ranked
 	for _, e := range order {
 		if !e.rankable {
@@ -344,7 +356,8 @@ func (r *Router) evaluate(c Candidate, model string, now time.Time) *eval {
 		return block("quota_auth_suspect", false)
 	}
 	if e.assessment.Remaining < r.cfg.NewSessionMinRemaining {
-		return block(fmt.Sprintf("low_headroom:%.0f", e.assessment.Remaining), false)
+		e.lowRoom = true
+		return block("low_headroom:"+strconv.FormatFloat(math.Round(e.assessment.Remaining*10)/10, 'f', -1, 64), false)
 	}
 	e.rankable = true
 	e.cause = ""

@@ -398,5 +398,5 @@ table.grid { width: 100%; border-collapse: collapse; }
   .kv { grid-template-columns: 120px 1fr; }
   .topbar .seg { order: 3; }
   .search .input { width: 100%; }
-  .search { flex: 1; }
+  .search { order: 4; flex: 1 1 100%; }
 }

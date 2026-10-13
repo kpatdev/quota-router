@@ -126,6 +126,13 @@ is usable), then optional plugin priority (`manual_priority`), then the policy:
 
 Ties break by remaining percentage, then auth ID.
 
+New sessions skip accounts whose most constrained window has less than
+`new_session_min_remaining` percent left (default 5, reason `low_headroom`),
+unless nothing else is usable. Reset-first would otherwise start long
+conversations on an account that is nearly empty because it resets soonest.
+Bound sessions are not affected: they stay until the account is actually
+exhausted.
+
 ## Quota model
 
 Each account has a snapshot of windows with explicit semantics:

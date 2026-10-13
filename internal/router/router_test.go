@@ -744,3 +744,15 @@ func TestLowHeadroomSkippedForNewSessionsButKeptForBound(t *testing.T) {
 		t.Fatalf("skip reason: %+v", d.Skipped)
 	}
 }
+
+func TestLowHeadroomUsedWhenNothingElseIsReady(t *testing.T) {
+	h := newHarness(t)
+	h.roster("codex", "a", "b")
+	h.poll("a", weekly(98, 2*time.Hour))
+	h.poll("b", weekly(97, 50*time.Hour))
+	d := h.pick("codex", "m", codexSession("s"), "a", "b")
+	expect(t, d, OutcomeNewSession, "a")
+	if len(d.Skipped) != 0 {
+		t.Fatalf("skipped: %+v", d.Skipped)
+	}
+}
