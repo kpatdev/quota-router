@@ -34,7 +34,7 @@ for (const [vpName, vp] of Object.entries(viewports)) {
       await page.evaluate((r) => (location.hash = `/${r}`), p);
       await page.waitForTimeout(1800);
       const file = `${out}/${p}-${vpName}-${theme}.png`;
-      await page.screenshot({ path: file, fullPage: vpName !== "desktop" || p === "settings" ? false : false });
+      await page.screenshot({ path: file, fullPage: process.env.QR_FULL === "1" });
       console.log(file);
     }
     if (errors.length) console.error(`${vpName}/${theme} console errors:\n  ${errors.join("\n  ")}`);
