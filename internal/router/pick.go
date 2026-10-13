@@ -489,14 +489,16 @@ func windowName(w quota.Window) string {
 	return string(w.Kind)
 }
 
+// human formats like the dashboard's duration(): truncated, two units.
 func human(d time.Duration) string {
+	m := int(max(d, 0).Round(time.Second).Minutes())
 	switch {
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 48*time.Hour:
-		return fmt.Sprintf("%.1fh", d.Hours())
+	case m >= 24*60:
+		return fmt.Sprintf("%dd %dh", m/(24*60), m%(24*60)/60)
+	case m >= 60:
+		return fmt.Sprintf("%dh %dm", m/60, m%60)
 	default:
-		return fmt.Sprintf("%.1fd", d.Hours()/24)
+		return fmt.Sprintf("%dm", m)
 	}
 }
 

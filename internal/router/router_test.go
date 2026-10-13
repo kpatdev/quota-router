@@ -756,3 +756,14 @@ func TestLowHeadroomUsedWhenNothingElseIsReady(t *testing.T) {
 		t.Fatalf("skipped: %+v", d.Skipped)
 	}
 }
+
+func TestHumanDurationsMatchTheDashboard(t *testing.T) {
+	for d, want := range map[time.Duration]string{
+		-time.Minute: "0m", 59 * time.Minute: "59m", 3 * time.Hour: "3h 0m", 4*time.Hour + 40*time.Minute: "4h 40m",
+		39*time.Hour + 48*time.Minute: "1d 15h", 48 * time.Hour: "2d 0h", 6*24*time.Hour + 4*time.Hour + 10*time.Minute: "6d 4h",
+	} {
+		if got := human(d); got != want {
+			t.Errorf("human(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
