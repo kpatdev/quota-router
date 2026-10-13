@@ -4,8 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] go.mod requires CPA v8 SDK; module path is the fork's
-- [ ] `make test` (gofmt, vet, race tests) passes with the existing test cases
-- [ ] Plugin ID, config keys, and status route unchanged
+Done. Plugin ID later renamed to `kpatdev-quota-router` (user-approved 2026-10-13, see AGENT-COORDINATION.md); config keys and status-route fields are otherwise unchanged (TestStatusKeepsTheOriginalShape).
+
+- [x] go.mod requires CPA v8 SDK; module path is the fork's
+- [x] `make test` (gofmt, vet, race tests) passes with the existing test cases
+- [x] Plugin ID, config keys, and status route unchanged

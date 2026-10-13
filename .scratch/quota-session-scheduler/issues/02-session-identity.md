@@ -4,9 +4,11 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Claude Code main, subagent (agent/parent-agent headers) and Codex main, thread, subagent, fork cases produce CPA-equivalent IDs and parents
-- [ ] `X-Client-Request-Id`, `Idempotency-Key`, and request IDs never produce a session
-- [ ] Parity test against CPA v8 `session.ExtractSessionInfo(headers, nil, metadata)` on a fixture corpus
-- [ ] Raw session IDs never leave the extractor except hashed
+Done. Parity test: internal/session/session_test.go.
+
+- [x] Claude Code main, subagent (agent/parent-agent headers) and Codex main, thread, subagent, fork cases produce CPA-equivalent IDs and parents
+- [x] `X-Client-Request-Id`, `Idempotency-Key`, and request IDs never produce a session
+- [x] Parity test against CPA v8 `session.ExtractSessionInfo(headers, nil, metadata)` on a fixture corpus
+- [x] Raw session IDs never leave the extractor except hashed

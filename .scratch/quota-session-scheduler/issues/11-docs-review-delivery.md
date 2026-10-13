@@ -4,7 +4,9 @@
 
 **Blocked by:** 09, 10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every documented behavior is covered by a test or marked untested in the matrix
-- [ ] Review findings fixed or recorded as limitations
+Done. README, CHANGELOG.md, docs/compatibility.md, docs/limitations.md, docs/screenshots/. Two-axis review run; findings fixed (commits bdbc3cd, b14ef80, 11c33e1) or recorded in docs/limitations.md.
+
+- [x] Every documented behavior is covered by a test or marked untested in the matrix
+- [x] Review findings fixed or recorded as limitations

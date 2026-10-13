@@ -4,9 +4,11 @@
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Acceptance scenario passes again through the RPC seam (`scheduler.pick` + `usage.handle` JSON)
-- [ ] Old configs (`mode`, `poll_interval`, `max_age`, `request_timeout` only) load unchanged
-- [ ] No response contains tokens, API keys, raw session IDs, or credential paths (asserted over all routes)
-- [ ] Panics in pick return "not handled"
+Done. TestAcceptanceThroughRPC, TestLegacyConfigAndReconfigureKeepState, TestPickPanicsFallBackToHost.
+
+- [x] Acceptance scenario passes again through the RPC seam (`scheduler.pick` + `usage.handle` JSON)
+- [x] Old configs (`mode`, `poll_interval`, `max_age`, `request_timeout` only) load unchanged
+- [x] No response contains tokens, API keys, raw session IDs, or credential paths (asserted over all routes)
+- [x] Panics in pick return "not handled"

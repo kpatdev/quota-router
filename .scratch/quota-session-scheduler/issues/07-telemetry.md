@@ -4,8 +4,10 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Estimates require ≥ 2 samples in the same window spanning ≥ 15 minutes with rising usage; otherwise `insufficient_data`
-- [ ] Window reset between samples never produces a negative rate
-- [ ] Retention honors `history_retention`
+Done. Burn estimates need ≥2 samples spanning ≥15 min (internal/telemetry).
+
+- [x] Estimates require ≥ 2 samples in the same window spanning ≥ 15 minutes with rising usage; otherwise `insufficient_data`
+- [x] Window reset between samples never produces a negative rate
+- [x] Retention honors `history_retention`

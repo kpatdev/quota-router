@@ -4,8 +4,10 @@
 
 **Blocked by:** 06, 08
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] linux_amd64 and linux_arm64 plugin builds load in CPA v8.0.27
-- [ ] v7.3.15 loads the same binary and routes
-- [ ] Binding survives `docker compose restart`
+Done. Host test passes on official v8.0.27 linux/arm64 and linux/amd64; v7.3.15 linux/arm64 routes Claude (Codex skipped: HTTP/1.1 fixture vs v7's HTTP/2 client, see docs/compatibility.md). Docker persistence verified with `docker restart` and container recreation on the official image (tests/docker_persistence.py).
+
+- [x] linux_amd64 and linux_arm64 plugin builds load in CPA v8.0.27
+- [x] v7.3.15 loads the same binary and routes
+- [x] Binding survives `docker compose restart`

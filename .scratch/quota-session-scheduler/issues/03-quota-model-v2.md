@@ -4,10 +4,12 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Unit scaling is tested: Claude header 0.42 → 42% used; Codex 42 → 42% used; remaining computed in one place
-- [ ] Passed reset → `reset_pending`, never `ready`, until fresh evidence
-- [ ] Model-weekly windows only affect matching model families
-- [ ] Parsers fuzzed; unknown fields ignored; missing required long window → unknown
-- [ ] Poll failures back off with jitter; 401/403 mark auth suspect without discarding history
+Done. Fuzzers: FuzzParseClaudeUsage, FuzzParseCodexUsage. Full window without a reset time is exhausted (review fix).
+
+- [x] Unit scaling is tested: Claude header 0.42 → 42% used; Codex 42 → 42% used; remaining computed in one place
+- [x] Passed reset → `reset_pending`, never `ready`, until fresh evidence
+- [x] Model-weekly windows only affect matching model families
+- [x] Parsers fuzzed; unknown fields ignored; missing required long window → unknown
+- [x] Poll failures back off with jitter; 401/403 mark auth suspect without discarding history

@@ -4,9 +4,11 @@
 
 **Blocked by:** 06, 07
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Resource routes serve index and hashed assets with CSP and nosniff; no data in resources
-- [ ] Bars render remaining capacity; tests cover utilization vs remaining inputs
-- [ ] Keyboard navigation and visible focus; contrast passes axe
-- [ ] Desktop, tablet, mobile layouts
+Done. axe WCAG 2.1 AA audit passes on all pages, both themes, desktop and mobile (`pnpm a11y`); tablet layout checked at 900px.
+
+- [x] Resource routes serve index and hashed assets with CSP and nosniff; no data in resources
+- [x] Bars render remaining capacity; tests cover utilization vs remaining inputs
+- [x] Keyboard navigation and visible focus; contrast passes axe
+- [x] Desktop, tablet, mobile layouts

@@ -4,10 +4,12 @@
 
 **Blocked by:** 02, 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Brief §3 acceptance scenario passes for Claude and for Codex at the router seam
-- [ ] Concurrent same-session picks bind once (race test)
-- [ ] TTL expiry with activity renewal; LRU cap
-- [ ] Separate providers, models, callers isolated
-- [ ] Every decision lists eligible and skipped candidates with reasons
+Done. TestConcurrentFirstRequestsBindOnce; eager rebinds only after a successful failover (review fix).
+
+- [x] Brief §3 acceptance scenario passes for Claude and for Codex at the router seam
+- [x] Concurrent same-session picks bind once (race test)
+- [x] TTL expiry with activity renewal; LRU cap
+- [x] Separate providers, models, callers isolated
+- [x] Every decision lists eligible and skipped candidates with reasons

@@ -4,8 +4,10 @@
 
 **Blocked by:** 08
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Settings save validates first, patches CPA config, and confirms the plugin picked up the new generation
-- [ ] Clearing all bindings requires typed confirmation
-- [ ] Charts show empty states when metrics are absent
+Done. Settings flow in web/src/settingsApi.ts; clear-sessions confirmation tested in TestManagementMutationsAreGuarded; charts show empty states.
+
+- [x] Settings save validates first, patches CPA config, and confirms the plugin picked up the new generation
+- [x] Clearing all bindings requires typed confirmation
+- [x] Charts show empty states when metrics are absent
