@@ -170,7 +170,7 @@ kept):
 **Management API** (all under `/v0/management/plugins/kpatdev-quota-router/`,
 CPA-authenticated): `GET status` (legacy shape preserved as a subset),
 `GET overview`, `GET sessions`, `GET activity`, `GET decision?id=`,
-`GET usage?window=`, `GET settings`, `POST settings/validate`, `POST refresh`,
+`GET usage?range=`, `GET settings`, `POST settings/validate`, `POST refresh`,
 `POST simulate`, `POST sessions/clear`, `GET export`. Responses are
 `Cache-Control: no-store`. Mutations require `Content-Type: application/json`
 and reject bodies over 64 KiB.

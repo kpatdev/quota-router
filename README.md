@@ -165,7 +165,7 @@ Invalid values are rejected field by field. `POST /v0/management/plugins/kpatdev
 
 All routes are under `/v0/management/plugins/kpatdev-quota-router/` and require CPA's management key (`Authorization: Bearer …` or `X-Management-Key`):
 
-`GET status` · `GET overview` · `GET accounts` · `GET sessions` · `GET activity` · `GET decision?id=` · `GET usage?window=6h|24h|7d` · `GET settings` · `POST settings/validate` · `POST refresh` · `POST simulate` · `POST sessions/clear` · `GET export`
+`GET status` · `GET overview` · `GET accounts` · `GET sessions` · `GET activity` · `GET decision?id=` · `GET usage?range=6h|24h|7d` · `GET settings` · `POST settings/validate` · `POST refresh` · `POST simulate` · `POST sessions/clear` · `GET export`
 
 `status` keeps the fields of the original plugin's status route.
 
