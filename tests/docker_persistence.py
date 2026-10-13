@@ -136,10 +136,14 @@ plugins:
         start_cpa()
         wait(ready, "recreate")
         assert claude("persist-1") == "ca", "binding lost across container recreation"
-        state = (tmp / "plugins" / f"{PLUGIN}-data" / "state.json").read_text()
+        # The plugin writes state owner-only (0600) as the container's root user, so read it in the container.
+        state = sh("docker", "exec", tag + "-cpa", "cat", f"/CLIProxyAPI/plugins/{PLUGIN}-data/state.json")
+        assert '"bindings"' in state, "state file has no bindings"
         assert "sk-ant-oat" not in state and "persist-1" not in state and MGMT not in state, "state file contains secrets"
         print(f"PASS: bindings survived docker restart and container recreation ({image}, {arch}); state file holds no secrets")
     finally:
+        # Hand root-owned files written by the container back to us so the temp dir can be removed.
+        sh("docker", "exec", tag + "-cpa", "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/CLIProxyAPI/plugins", "/root/.cli-proxy-api", check=False)
         for c in (tag + "-cpa", tag + "-fx"):
             sh("docker", "rm", "-f", c, check=False)
         sh("docker", "network", "rm", tag, check=False)
