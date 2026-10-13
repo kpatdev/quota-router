@@ -41,7 +41,7 @@ export function AccountTable({
   const showModel = accounts.some((a) => modelWindows(a).length > 0);
   return (
     <div className="table-wrap">
-      <table className="grid">
+      <table className="grid stack">
         <thead>
           <tr>
             <SortHeader label="Account" k="name" sort={sort} setSort={setSort} />
@@ -75,7 +75,7 @@ export function AccountTable({
                 tabIndex={0}
                 aria-label={`${label(a)}, ${a.routing}. Open details`}
               >
-                <td>
+                <td data-label="">
                   <div className="acct">
                     <ProviderMark provider={a.provider} />
                     <div style={{ minWidth: 0 }}>
@@ -96,25 +96,25 @@ export function AccountTable({
                     </div>
                   </div>
                 </td>
-                <td className="w-meter"><QuotaMeter w={findWindow(a, "five_hour")} label="5-hour" now={now} /></td>
-                <td className="w-meter"><QuotaMeter w={long} label={long?.kind === "monthly" ? "Monthly" : "Weekly"} now={now} /></td>
+                <td data-label="" className="w-meter"><QuotaMeter w={findWindow(a, "five_hour")} label="5-hour" now={now} /></td>
+                <td data-label="" className="w-meter"><QuotaMeter w={long} label={long?.kind === "monthly" ? "Monthly" : "Weekly"} now={now} /></td>
                 {showModel && (
-                  <td className="w-meter hide-md">
+                  <td data-label="" className="w-meter hide-md">
                     {tightest ? <QuotaMeter w={tightest} label={tightest.label + (models.length > 1 ? ` +${models.length - 1}` : "")} now={now} /> : <span className="faint">—</span>}
                   </td>
                 )}
-                <td className="nowrap">
+                <td data-label="Next reset" className="nowrap">
                   <div className="num">{a.next_reset ? relative(a.next_reset, now) : "—"}</div>
                   <div className="faint num" style={{ fontSize: 11.5 }}>{absolute(a.next_reset)}{a.expiring_soon && <span style={{ color: "var(--warning)" }}> · use soon</span>}</div>
                 </td>
-                <td className="right num hide-sm">{a.active_sessions}</td>
-                <td>
+                <td data-label="Sessions" className="right num">{a.active_sessions}</td>
+                <td data-label="Status">
                   <RoutingPill a={a} />
                   {a.routing !== "eligible" && a.routing_reason && <div className="faint" style={{ fontSize: 11, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason(a.routing_reason)}</div>}
                 </td>
-                <td className="nowrap faint hide-md">{refreshed ? relative(refreshed, now) : a.poll_error ? <span style={{ color: "var(--critical)" }}>failed</span> : "never"}</td>
+                <td data-label="Refreshed" className="nowrap faint hide-md">{refreshed ? relative(refreshed, now) : a.poll_error ? <span style={{ color: "var(--critical)" }}>failed</span> : "never"}</td>
                 {onRefresh && (
-                  <td className="right">
+                  <td data-label="" className="right">
                     <button
                       className="btn icon sm ghost"
                       aria-label={`Refresh quota for ${label(a)}`}

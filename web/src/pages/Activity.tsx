@@ -55,6 +55,7 @@ function toneFor(outcome: string): "good" | "warning" | "info" | undefined {
 function whyText(d: Decision): string {
   if (d.cause) return reason(d.cause);
   if (d.outcome === "affinity") return "Bound session";
+  if (d.outcome === "inherited") return "Parent session's account";
   if (d.outcome === "new_session") return d.ranked?.[0] ? reason(d.ranked[0].reason) : "Top ranked";
   return "";
 }
@@ -173,7 +174,7 @@ export function ActivityPage({ provider, search, now }: PageProps) {
           )
         ) : (
           <div className="table-wrap">
-            <table className="grid">
+            <table className="grid stack">
               <caption className="sr-only">Routing decisions</caption>
               <thead>
                 <tr>
@@ -194,11 +195,11 @@ export function ActivityPage({ provider, search, now }: PageProps) {
                     onClick={() => open(x.id)}
                     onKeyDown={(e) => onRowKey(e, x.id)}
                   >
-                    <td className="nowrap">
+                    <td data-label="Time" className="nowrap">
                       <div className="mono num">{clock(x.at)}</div>
                       <div className="faint" style={{ fontSize: 11.5 }}>{relative(x.at, now)}</div>
                     </td>
-                    <td>
+                    <td data-label="Request">
                       <div className="acct">
                         <ProviderMark provider={x.provider} />
                         <div style={{ minWidth: 0 }}>
@@ -210,17 +211,17 @@ export function ActivityPage({ provider, search, now }: PageProps) {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Outcome">
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <Pill tone={toneFor(x.outcome)}>{outcomeLabel[x.outcome] ?? x.outcome}</Pill>
                         {!x.applied && x.outcome !== "delegated" && <Pill>shadow</Pill>}
                       </div>
                     </td>
-                    <td className="nowrap">{x.auth_id ? name(x.auth_id) : <span className="faint">CLIProxyAPI chose</span>}</td>
-                    <td className="hide-md">
+                    <td data-label="Account" className="nowrap">{x.auth_id ? name(x.auth_id) : <span className="faint">CLIProxyAPI chose</span>}</td>
+                    <td data-label="Why" className="hide-md">
                       <span style={whyStyle} title={whyText(x)}>{whyText(x) || <span className="faint">—</span>}</span>
                     </td>
-                    <td className="hide-sm nowrap">
+                    <td data-label="Result" className="hide-sm nowrap">
                       {x.result ? (
                         <>
                           {name(x.result.auth_id)}{" "}

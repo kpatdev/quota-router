@@ -343,6 +343,9 @@ func (r *Router) evaluate(c Candidate, model string, now time.Time) *eval {
 	if h.PollAuthRejected {
 		return block("quota_auth_suspect", false)
 	}
+	if e.assessment.Remaining < r.cfg.NewSessionMinRemaining {
+		return block(fmt.Sprintf("low_headroom:%.0f", e.assessment.Remaining), false)
+	}
 	e.rankable = true
 	e.cause = ""
 	return e

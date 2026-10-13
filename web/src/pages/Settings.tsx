@@ -270,7 +270,7 @@ function Simulator({ draftStrategy, current }: { draftStrategy: string; current:
                 const actual = d.result?.auth_id;
                 const same = !actual || actual === d.auth_id;
                 return (
-                  <li key={d.id} style={{ display: "grid", gridTemplateColumns: "62px 1fr", gap: 8 }}>
+                  <li key={d.id} style={{ display: "grid", gridTemplateColumns: "88px 1fr", gap: 8 }}>
                     <span className="faint mono">{clock(d.at)}</span>
                     <span>
                       <span className="muted">{outcomeLabel[d.outcome] ?? d.outcome}:</span> {d.auth_id ? name(d.auth_id) : <span className="faint">{reason(d.cause)}</span>}

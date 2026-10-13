@@ -98,6 +98,8 @@ export function reason(code: string | undefined | null): string {
       return `Login rejected (${head.slice(-3)})`;
     case "model_unavailable":
       return tail ? `${cap(tail)} unavailable on this account` : "Model unavailable on this account";
+    case "low_headroom":
+      return `Only ${tail}% left; below the new-session minimum`;
     case "learned":
       return `${reason(tail)} (from observed traffic)`;
     case "bound_unusable_no_alternative":
@@ -148,4 +150,10 @@ export const policyLabel: Record<string, string> = {
 
 export function label(a: { alias?: string; display: string }): string {
   return a.alias || a.display;
+}
+
+/** "3h0m0s" (Go duration) → "3h". */
+export function goDuration(d: string | undefined): string {
+  if (!d) return "—";
+  return d.replace(/(\d)h0m0s$/, "$1h").replace(/(\d)m0s$/, "$1m").replace(/^0s$/, "0s");
 }

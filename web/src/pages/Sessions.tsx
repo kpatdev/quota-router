@@ -3,7 +3,7 @@ import type { PageProps } from "../App";
 import { request } from "../api";
 import { Banner, Dialog, Empty, Pill, ProviderMark, Skeleton, SortHeader, type SortDir } from "../components/ui";
 import { usePoll, toast } from "../hooks";
-import { absolute, reason, relative } from "../format";
+import { absolute, goDuration, reason, relative } from "../format";
 import type { SessionRow } from "../types";
 
 interface SessionsResponse {
@@ -48,7 +48,7 @@ export function SessionsPage({ provider, search, now }: PageProps) {
   const rows = useMemo(() => sortRows(filtered, sort.key as SortKey, sort.dir), [filtered, sort]);
 
   if (!q.data) return <div className="panel"><Skeleton rows={6} /></div>;
-  const ttl = q.data.ttl;
+  const ttl = goDuration(q.data.ttl);
 
   async function release(row: SessionRow) {
     try {
@@ -100,7 +100,7 @@ export function SessionsPage({ provider, search, now }: PageProps) {
           <Empty title="No active sessions">Sessions appear when Claude Code or Codex sends a request with a session header.</Empty>
         ) : (
           <div className="table-wrap">
-            <table className="grid">
+            <table className="grid stack">
               <caption className="sr-only">Sessions bound to accounts, with status, age, and expiry</caption>
               <thead>
                 <tr>
@@ -118,7 +118,7 @@ export function SessionsPage({ provider, search, now }: PageProps) {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.session}>
-                    <td>
+                    <td data-label="Session">
                       <div className="mono">{row.session}</div>
                       <div className="faint" style={{ fontSize: 11.5 }}>
                         {row.kind} · {row.client ?? "unknown client"}
@@ -135,22 +135,22 @@ export function SessionsPage({ provider, search, now }: PageProps) {
                         )}
                       </div>
                     </td>
-                    <td className="nowrap">
+                    <td data-label="Model" className="nowrap">
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <ProviderMark provider={row.provider} />
                         <span>{row.model}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Account">
                       <div>{row.account}</div>
                       {row.actual_auth_id && row.actual_auth_id !== row.auth_id && (
                         <div className="faint" style={{ fontSize: 11.5 }}>last served by another account</div>
                       )}
                     </td>
-                    <td className="nowrap num">{relative(row.created_at, now)}</td>
-                    <td className="nowrap num">{relative(row.last_seen, now)}</td>
-                    <td className="right num hide-sm">{row.requests}</td>
-                    <td>
+                    <td data-label="Age" className="nowrap num">{relative(row.created_at, now)}</td>
+                    <td data-label="Last active" className="nowrap num">{relative(row.last_seen, now)}</td>
+                    <td data-label="Requests" className="right num hide-sm">{row.requests}</td>
+                    <td data-label="Status">
                       {!row.account_usable ? (
                         <Pill tone="warning">Account unusable</Pill>
                       ) : row.rebinds > 0 ? (
@@ -172,8 +172,8 @@ export function SessionsPage({ provider, search, now }: PageProps) {
                         <Pill tone="good">Bound</Pill>
                       )}
                     </td>
-                    <td className="nowrap num hide-md" title={absolute(row.expires_at)}>{relative(row.expires_at, now)}</td>
-                    <td className="right">
+                    <td data-label="Expires" className="nowrap num hide-md" title={absolute(row.expires_at)}>{relative(row.expires_at, now)}</td>
+                    <td data-label="" className="right">
                       <button
                         className="btn sm ghost"
                         aria-label={`Release session ${row.session}`}

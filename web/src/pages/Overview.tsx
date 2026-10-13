@@ -107,7 +107,7 @@ function Stats({ ov, now }: { ov: Overview; now: number }) {
       </div>
       <div className="stat">
         <div className="stat-label">Last quota data</div>
-        <div className="stat-value">{ov.last_refresh ? relative(ov.last_refresh, now).replace(/ ago$/, "") : "—"}<small>{ov.last_refresh ? "ago" : ""}</small></div>
+        <div className="stat-value">{ov.last_refresh ? relative(ov.last_refresh, now).replace(/ ago$/, "") : "—"}<small>{ov.last_refresh && relative(ov.last_refresh, now).endsWith(" ago") ? "ago" : ""}</small></div>
         <div className="stat-foot">{ov.roster.ok ? "Polling and live headers" : `Credential list failed: ${ov.roster.error}`}</div>
       </div>
       <div className="stat">

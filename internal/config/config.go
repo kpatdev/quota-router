@@ -53,6 +53,7 @@ type Config struct {
 	RebindPolicy              string            `yaml:"rebind_policy" json:"rebind_policy"`
 	PressureMinHours          float64           `yaml:"pressure_min_hours" json:"pressure_min_hours"`
 	BalancedFiveHourSoftLimit float64           `yaml:"balanced_five_hour_soft_limit" json:"balanced_five_hour_soft_limit"`
+	NewSessionMinRemaining    float64           `yaml:"new_session_min_remaining" json:"new_session_min_remaining"`
 	ScheduleAcrossPriorities  bool              `yaml:"schedule_across_priorities" json:"schedule_across_priorities"`
 	AccountPriority           map[string]int    `yaml:"account_priority" json:"account_priority"`
 	AccountAlias              map[string]string `yaml:"account_alias" json:"account_alias"`
@@ -79,6 +80,7 @@ func Default() Config {
 		RebindPolicy:              RebindConservative,
 		PressureMinHours:          0.5,
 		BalancedFiveHourSoftLimit: 85,
+		NewSessionMinRemaining:    5,
 		ScheduleAcrossPriorities:  true,
 		AccountPriority:           map[string]int{},
 		AccountAlias:              map[string]string{},
@@ -195,6 +197,9 @@ func (c Config) Validate() Errors {
 	if math.IsNaN(c.BalancedFiveHourSoftLimit) || c.BalancedFiveHourSoftLimit < 50 || c.BalancedFiveHourSoftLimit > 100 {
 		add("balanced_five_hour_soft_limit", "must be between 50 and 100")
 	}
+	if math.IsNaN(c.NewSessionMinRemaining) || c.NewSessionMinRemaining < 0 || c.NewSessionMinRemaining > 50 {
+		add("new_session_min_remaining", "must be between 0 and 50")
+	}
 	if c.ActivityRetention < 100 || c.ActivityRetention > 20000 {
 		add("activity_retention", "must be between 100 and 20000")
 	}
@@ -277,6 +282,7 @@ func (c Config) yamlMap() map[string]any {
 		"rebind_policy":                 c.RebindPolicy,
 		"pressure_min_hours":            c.PressureMinHours,
 		"balanced_five_hour_soft_limit": c.BalancedFiveHourSoftLimit,
+		"new_session_min_remaining":     c.NewSessionMinRemaining,
 		"schedule_across_priorities":    c.ScheduleAcrossPriorities,
 		"account_priority":              priority,
 		"account_alias":                 alias,
@@ -318,6 +324,7 @@ func Schema() []Field {
 		{"rebind_policy", "enum", []string{RebindConservative, RebindEager, RebindNever}, "", "", d.RebindPolicy, "Affinity", "Conservative moves a session only on exhaustion, auth failure, or removal. Eager also moves after a temporary failover. Never only moves when the account is removed.", "Affects the next failure of a bound session.", false},
 		{"pressure_min_hours", "number", nil, "0.1", "24", d.PressureMinHours, "Policies", "Smallest hours-to-reset divisor in the quota-pressure score.", "Affects quota_pressure ranking.", false},
 		{"balanced_five_hour_soft_limit", "number", nil, "50", "100", d.BalancedFiveHourSoftLimit, "Policies", "Five-hour utilization above which balanced ranks an account last.", "Affects balanced ranking.", false},
+		{"new_session_min_remaining", "number", nil, "0", "50", d.NewSessionMinRemaining, "Policies", "New sessions skip accounts with less long-window capacity left than this percentage, so a thread does not start on an account that is about to run out. Bound sessions keep using the remainder.", "Affects new sessions and failovers only.", false},
 		{"poll_interval", "duration", nil, "1m", "1h", d.PollInterval.String(), "Quota", "How often each account's quota is read.", "Takes effect at each account's next poll.", false},
 		{"max_age", "duration", nil, "poll_interval", "1h", d.MaxAge.String(), "Quota", "Quota older than this is stale and not used to rank new sessions.", "Stale accounts stop receiving new sessions until refreshed.", false},
 		{"request_timeout", "duration", nil, "1s", "30s", d.RequestTimeout.String(), "Quota", "Timeout for one quota request.", "Next poll.", false},

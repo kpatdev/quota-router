@@ -94,6 +94,7 @@ a { color: var(--accent); }
 .muted { color: var(--text-2); }
 .faint { color: var(--text-3); }
 .nowrap { white-space: nowrap; }
+.spacer { flex: 1; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -146,7 +147,7 @@ a { color: var(--accent); }
 .topbar h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
 .topbar .spacer { flex: 1; }
 .content { padding: 20px 24px 48px; display: flex; flex-direction: column; gap: 20px; max-width: 1600px; width: 100%; }
-.menu-btn { display: none; }
+.topbar .menu-btn { display: none; }
 
 /* ---------- Controls ---------- */
 .btn {
@@ -369,7 +370,7 @@ table.grid { width: 100%; border-collapse: collapse; }
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: fixed; z-index: 50; left: 0; width: 260px; transform: translateX(-100%); transition: transform 180ms var(--ease); box-shadow: var(--shadow); }
   .shell.nav-open .sidebar { transform: none; }
-  .menu-btn { display: inline-flex; }
+  .topbar .menu-btn { display: inline-flex; }
   .split, .charts { grid-template-columns: 1fr; }
   .content { padding: 16px; }
   .topbar { padding: 10px 16px; }
@@ -377,6 +378,18 @@ table.grid { width: 100%; border-collapse: collapse; }
   .hide-md { display: none; }
 }
 @media (max-width: 640px) {
+  /* Tables become stacked cards: header hidden, each cell labeled. */
+  table.grid.stack, .grid.stack tbody { display: block; }
+  .grid.stack thead { display: none; }
+  .grid.stack tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .grid.stack tr:last-child { border-bottom: 0; }
+  .grid.stack td { display: block; padding: 0; border: 0; min-width: 0; text-align: left; }
+  .grid.stack td.hide-sm, .grid.stack td.hide-md { display: block; }
+  .grid.stack td:first-child { grid-column: 1 / -1; }
+  .grid.stack td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); margin-bottom: 2px; }
+  .grid.stack td.right:last-child { grid-column: 2; justify-self: end; }
+  .grid.stack .acct-name { max-width: none; }
+  .panel-head .sub { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hide-sm { display: none; }
   .setting { grid-template-columns: 1fr; gap: 8px; }

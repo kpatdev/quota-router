@@ -728,3 +728,19 @@ func TestViewsAreRedacted(t *testing.T) {
 		}
 	}
 }
+
+func TestLowHeadroomSkippedForNewSessionsButKeptForBound(t *testing.T) {
+	h := newHarness(t)
+	h.roster("codex", "nearly", "fresh")
+	h.poll("nearly", weekly(80, 2*time.Hour))
+	h.poll("fresh", weekly(10, 100*time.Hour))
+	s := codexSession("s")
+	expect(t, h.pick("codex", "m", s, "nearly", "fresh"), OutcomeNewSession, "nearly")
+	h.poll("nearly", weekly(97, 2*time.Hour))
+	expect(t, h.pick("codex", "m", s, "nearly", "fresh"), OutcomeAffinity, "nearly")
+	d := h.pick("codex", "m", codexSession("new"), "nearly", "fresh")
+	expect(t, d, OutcomeNewSession, "fresh")
+	if len(d.Skipped) != 1 || d.Skipped[0].Reason != "low_headroom:3" {
+		t.Fatalf("skip reason: %+v", d.Skipped)
+	}
+}
