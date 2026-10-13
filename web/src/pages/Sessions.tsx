@@ -99,7 +99,7 @@ export function SessionsPage({ provider, search, now }: PageProps) {
         {rows.length === 0 ? (
           <Empty title="No active sessions">Sessions appear when Claude Code or Codex sends a request with a session header.</Empty>
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Sessions">
             <table className="grid stack">
               <caption className="sr-only">Sessions bound to accounts, with status, age, and expiry</caption>
               <thead>

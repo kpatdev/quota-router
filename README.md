@@ -238,6 +238,7 @@ make zip          # dist/release/kpatdev-quota-router_<version>_<target>.zip
 make load-test    # load the zip into the official CPA; TARGET must match this machine
 make demo         # CPA + plugin + synthetic accounts and traffic on :18318 (key: demo-management-key)
 cd web && pnpm test                          # dashboard unit tests
+cd web && pnpm a11y                          # axe WCAG 2.1 AA audit of every page against make demo
 python3 tests/docker_persistence.py <lib.so> # official Docker image persistence test
 ```
 

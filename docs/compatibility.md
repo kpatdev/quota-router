@@ -80,5 +80,8 @@ Real Claude Code and Codex CLI binaries were not run against the proxy in this w
 | Browser | Viewports | Themes | Result |
 |---|---|---|---|
 | Chromium (Playwright 1.64) | 1440×960, 390×844 (mobile emulation) | dark, light | all six pages render with no console errors (`web/scripts/screenshots.mjs`) |
+| Chromium (Playwright 1.64) + axe-core | 1440×960, 390×844 | dark, light | no WCAG 2.1 A/AA violations on the login screen or any page (`pnpm a11y`) |
+
+All rows and controls are reachable by keyboard and show a visible focus ring. Scrollable tables are focusable regions. Screen-reader labels are set for icon-only controls.
 
 Other browsers were not tested. The bundle targets current evergreen browsers and needs no polyfills.

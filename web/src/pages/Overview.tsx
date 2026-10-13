@@ -64,7 +64,7 @@ export function OverviewPage({ overview, reloadOverview, provider, search, now }
                 {s.total === 0 ? `Add ${providerName(p)} OAuth credentials in CLIProxyAPI; they appear here within a few seconds.` : "Clear the search to see all accounts."}
               </Empty>
             ) : (
-              <AccountTable accounts={list} now={now} onOpen={(a) => setOpen(a.id)} onRefresh={(a) => refreshAccount(a, reloadOverview)} selected={open} />
+              <AccountTable regionLabel={`${providerName(p)} accounts`} accounts={list} now={now} onOpen={(a) => setOpen(a.id)} onRefresh={(a) => refreshAccount(a, reloadOverview)} selected={open} />
             )}
           </section>
         );

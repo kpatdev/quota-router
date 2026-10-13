@@ -173,7 +173,7 @@ export function ActivityPage({ provider, search, now }: PageProps) {
             <Empty title="No decisions match">Change the outcome filter, provider, or search.</Empty>
           )
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Routing decisions">
             <table className="grid stack">
               <caption className="sr-only">Routing decisions</caption>
               <thead>

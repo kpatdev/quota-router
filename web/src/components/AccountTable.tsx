@@ -28,6 +28,7 @@ export function AccountTable({
   onRefresh,
   selected,
   initialSort = { key: "availability", dir: "asc" },
+  regionLabel = "Accounts",
 }: {
   accounts: Account[];
   now: number;
@@ -35,12 +36,13 @@ export function AccountTable({
   onRefresh?: (a: Account) => void;
   selected?: string;
   initialSort?: { key: SortKey; dir: SortDir };
+  regionLabel?: string;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir }>(initialSort);
   const rows = useMemo(() => sortAccounts(accounts, sort.key as SortKey, sort.dir), [accounts, sort]);
   const showModel = accounts.some((a) => modelWindows(a).length > 0);
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" tabIndex={0} role="region" aria-label={regionLabel}>
       <table className="grid stack">
         <thead>
           <tr>
@@ -82,7 +84,7 @@ export function AccountTable({
                       <div className="acct-name" title={a.alias ? a.display : undefined}>
                         {label(a)}
                         {a.preferred && (
-                          <span className="star" title="Next new session goes here" aria-label="preferred for new sessions" style={{ marginLeft: 6, verticalAlign: -1, display: "inline-flex" }}>
+                          <span className="star" role="img" title="Next new session goes here" aria-label="preferred for new sessions" style={{ marginLeft: 6, verticalAlign: -1, display: "inline-flex" }}>
                             <IconStar />
                           </span>
                         )}

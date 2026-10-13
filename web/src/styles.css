@@ -22,7 +22,7 @@
   --border-strong: #30353d;
   --text: #e7e9ec;
   --text-2: #a3aab4;
-  --text-3: #6d7580;
+  --text-3: #8a919b;
   --accent: #6ea4f7;
   --accent-ink: #0b0c0e;
   --accent-soft: rgba(110, 164, 247, 0.14);
@@ -33,6 +33,10 @@
   --critical: #e5534b;
   --critical-soft: rgba(229, 83, 75, 0.14);
   --info: #6ea4f7;
+  --good-text: var(--good);
+  --warning-text: var(--warning);
+  --critical-text: var(--critical);
+  --accent-text: var(--accent);
   --muted-soft: rgba(140, 150, 165, 0.12);
   --track: #22262c;
   --claude: #d97757;
@@ -55,7 +59,7 @@
   --border-strong: #d2d6dc;
   --text: #15181c;
   --text-2: #4d5560;
-  --text-3: #7a828d;
+  --text-3: #5f6772;
   --accent: #2563d6;
   --accent-ink: #ffffff;
   --accent-soft: rgba(37, 99, 214, 0.1);
@@ -66,6 +70,11 @@
   --critical: #c7362f;
   --critical-soft: rgba(199, 54, 47, 0.1);
   --info: #2563d6;
+  /* Darker tones for text on tinted pills (WCAG AA on the soft backgrounds, also over row hover). */
+  --good-text: #0b6438;
+  --warning-text: #7f5300;
+  --critical-text: #a3241e;
+  --accent-text: #1a4fae;
   --muted-soft: rgba(80, 90, 105, 0.08);
   --track: #e9ecf0;
   --claude: #c2582f;
@@ -216,10 +225,10 @@ a { color: var(--accent); }
   background: var(--muted-soft); color: var(--text-2);
 }
 .pill svg { width: 11px; height: 11px; }
-.pill.good { background: var(--good-soft); color: var(--good); }
-.pill.warning { background: var(--warning-soft); color: var(--warning); }
-.pill.critical { background: var(--critical-soft); color: var(--critical); }
-.pill.info { background: var(--accent-soft); color: var(--accent); }
+.pill.good { background: var(--good-soft); color: var(--good-text); }
+.pill.warning { background: var(--warning-soft); color: var(--warning-text); }
+.pill.critical { background: var(--critical-soft); color: var(--critical-text); }
+.pill.info { background: var(--accent-soft); color: var(--accent-text); }
 .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-3); }
 .dot.good { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
 .dot.warning { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }

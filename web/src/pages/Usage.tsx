@@ -89,7 +89,7 @@ function ProviderUsage({ u, p }: { u: Usage; p: Provider }) {
         {accounts.length === 0 ? (
           <Empty title="No traffic in this range" />
         ) : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Usage by account">
             <table className="grid">
               <caption className="sr-only">Usage by account</caption>
               <thead>
