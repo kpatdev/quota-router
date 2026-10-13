@@ -1,0 +1,26 @@
+# Minimal CLIProxyAPI config with the plugin enabled. Merge into an existing config.yaml.
+host: ""
+port: 8317
+auth-dir: /root/.cli-proxy-api
+api-keys:
+  - change-me-client-key
+remote-management:
+  allow-remote: false          # set true only behind a trusted network or reverse proxy
+  secret-key: change-me-management-key
+routing:
+  strategy: fill-first         # used when the plugin delegates (no trustworthy quota)
+request-retry: 3
+plugins:
+  enabled: true
+  dir: plugins
+  configs:
+    kpatdev-quota-router:
+      enabled: true
+      priority: 10
+      mode: shadow             # switch to active after reviewing proposed routing
+      strategy: reset_first
+      affinity_enabled: true
+      affinity_ttl: 3h
+      affinity_inherit_parent: true
+      rebind_policy: conservative
+      # state_dir: plugins/kpatdev-quota-router-data

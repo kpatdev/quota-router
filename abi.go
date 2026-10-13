@@ -10,15 +10,16 @@ import (
 	"errors"
 	"unsafe"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginabi"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginapi"
+	"github.com/kpatdev/quota-router/internal/plugin"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 const maxRPCBytes = 16 * 1024 * 1024
 
 type nativeHost struct{ api C.cliproxy_host_api }
 
-var plugin = &pluginRuntime{}
+var runtime = &plugin.Runtime{}
 
 func main() {}
 
@@ -27,7 +28,7 @@ func cliproxy_plugin_init(host *C.cliproxy_host_api, api *C.cliproxy_plugin_api)
 	if host == nil || api == nil || host.abi_version != C.uint32_t(pluginabi.ABIVersion) || host.call == nil || host.free_buffer == nil {
 		return 1
 	}
-	plugin.host = &nativeHost{api: *host}
+	runtime.Host = &nativeHost{api: *host}
 	api.abi_version = C.uint32_t(pluginabi.ABIVersion)
 	api.call = C.plugin_call_fn(C.cliproxyPluginCall)
 	api.free_buffer = C.plugin_free_fn(C.cliproxyPluginFree)
@@ -41,30 +42,27 @@ func cliproxyPluginCall(method *C.char, request *C.uint8_t, length C.size_t, res
 		return 1
 	}
 	response.ptr, response.len = nil, 0
+	// Literal envelopes: the recovery path must not depend on the encoder that may have panicked.
 	defer func() {
 		if recover() != nil {
-			if e := plugin.active.Load(); e != nil {
-				e.failed.Store(true)
-			}
 			if method != nil && C.GoString(method) == pluginabi.MethodSchedulerPick {
-				writeResponse(response, success(pluginapi.SchedulerPickResponse{}))
+				writeResponse(response, []byte(`{"ok":true,"result":{}}`))
 				code = 0
 				return
 			}
-			writeResponse(response, failure("internal_plugin_error"))
+			writeResponse(response, []byte(`{"ok":false,"error":{"code":"internal_plugin_error","message":"internal_plugin_error"}}`))
 			code = 1
 		}
 	}()
 	if method == nil || length > maxRPCBytes || request == nil && length != 0 {
-		writeResponse(response, failure("invalid_rpc_request"))
+		writeResponse(response, []byte(`{"ok":false,"error":{"code":"invalid_rpc_request","message":"invalid_rpc_request"}}`))
 		return 1
 	}
 	var raw []byte
 	if length > 0 {
 		raw = C.GoBytes(unsafe.Pointer(request), C.int(length))
 	}
-	result := plugin.handle(C.GoString(method), raw)
-	writeResponse(response, result)
+	writeResponse(response, runtime.Handle(C.GoString(method), raw))
 	return 0
 }
 
@@ -75,7 +73,7 @@ func cliproxyPluginFree(ptr unsafe.Pointer, _ C.size_t) {
 
 //export cliproxyPluginShutdown
 func cliproxyPluginShutdown() {
-	plugin.stop()
+	runtime.Shutdown()
 }
 
 func writeResponse(response *C.cliproxy_buffer, raw []byte) {

@@ -1,0 +1,23 @@
+# CLIProxyAPI with the kpatdev-quota-router plugin.
+#
+#   1. Put kpatdev-quota-router.so (linux_amd64 or linux_arm64 build) in ./plugins/.
+#   2. Copy config.example.yaml to ./config.yaml and set your keys.
+#   3. docker compose up -d
+#
+# Plugin state (session bindings, quota cache, history) lives in ./plugins/kpatdev-quota-router-data,
+# which this file already persists through the plugins volume. Move it elsewhere by setting
+# state_dir in config.yaml and mounting that path.
+services:
+  cli-proxy-api:
+    image: eceasy/cli-proxy-api:v8.0.27
+    container_name: cli-proxy-api
+    restart: unless-stopped
+    ports:
+      - "8317:8317"
+    volumes:
+      - ./config.yaml:/CLIProxyAPI/config.yaml
+      - ./auths:/root/.cli-proxy-api
+      - ./plugins:/CLIProxyAPI/plugins
+      - ./logs:/CLIProxyAPI/logs
+    # Give the plugin time to flush state on shutdown (it flushes within ~1 s).
+    stop_grace_period: 20s

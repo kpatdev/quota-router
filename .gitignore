@@ -5,3 +5,7 @@
 *.dll
 *.zip
 *.tar.gz
+/web/node_modules/
+/web/*.tsbuildinfo
+__pycache__/
+*.pyc

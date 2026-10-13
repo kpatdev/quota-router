@@ -2,8 +2,8 @@
 
 Usage:
   package_release.py zip <version> <target>
-      Package dist/<target>/quota-reset-router.<ext> as
-      dist/release/quota-reset-router_<version>_<target>.zip
+      Package dist/<target>/kpatdev-quota-router.<ext> as
+      dist/release/kpatdev-quota-router_<version>_<target>.zip
   package_release.py checksums <version>
       Write dist/release/checksums.txt; requires the zips for every target
 
@@ -17,7 +17,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-PLUGIN_ID = "quota-reset-router"
+PLUGIN_ID = "kpatdev-quota-router"
 EXTENSIONS = {
     "linux_amd64": "so",
     "linux_arm64": "so",

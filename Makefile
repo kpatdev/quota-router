@@ -2,9 +2,9 @@ IMAGE := golang:1.26-bookworm@sha256:a688600ca24f8a4d3ca77f95b0dd40704a9fc787c82
 GO_VERSION := 1.26.8
 # SHA-256 of https://go.dev/dl/go$(GO_VERSION).src.tar.gz, the source of the patched darwin_amd64 toolchain.
 GO_SRC_SHA256 := 4e39b98e42f946fa05ac8bc5b71877df97dbdb7cbb1a777b541667ad7117fd2e
-CPA_VERSION := 7.3.15
-PLUGIN := quota-reset-router
-VERSION := $(shell sed -n 's/^const pluginVersion = "\(.*\)"/\1/p' config.go)
+CPA_VERSION := 8.0.27
+PLUGIN := kpatdev-quota-router
+VERSION := $(shell sed -n 's/^const Version = "\(.*\)"/\1/p' internal/plugin/runtime.go)
 TARGETS := linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64
 
 TARGET ?= linux_amd64
@@ -42,7 +42,7 @@ ifeq ($(filter $(TARGET),$(TARGETS)),)
 $(error TARGET must be one of: $(TARGETS))
 endif
 
-.PHONY: test linux-test build zip checksums release-assets native-test host-test load-test cpa version clean
+.PHONY: demo web test linux-test build zip checksums release-assets native-test host-test load-test cpa version clean
 
 test: $(TOOLCHAIN)
 	$(CHECKS)
@@ -99,20 +99,20 @@ native-test:
 # On macOS this runs on the host, so it needs the fixture setup from .github/workflows/ci.yml; TARGET must match the machine.
 host-test: cpa
 ifeq ($(TARGET_OS),darwin)
-	python3 tests/host_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums.txt $(LIB)
+	python3 tests/host_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums-$(CPA_VERSION).txt $(LIB)
 else ifeq ($(TARGET_OS),linux)
-	$(call docker,$(TARGET_ARCH)) --cpus 1 --memory 384m --memory-swap 384m $(ISOLATED) $(IMAGE) python3 tests/host_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums.txt $(LIB)
+	$(call docker,$(TARGET_ARCH)) --cpus 1 --memory 384m --memory-swap 384m $(ISOLATED) $(IMAGE) python3 tests/host_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums-$(CPA_VERSION).txt $(LIB)
 else
 	$(error host-test needs a linux or darwin TARGET)
 endif
 
 # Runs on this machine, so TARGET must match it.
 load-test: cpa
-	python3 tests/load_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums.txt $(ZIP)
+	python3 tests/load_smoke.py dist/cpa/$(CPA_ASSET) dist/cpa/checksums-$(CPA_VERSION).txt $(ZIP)
 
 cpa:
 	mkdir -p dist/cpa
-	test -f dist/cpa/checksums.txt || curl -fsSL -o dist/cpa/checksums.txt $(CPA_URL)/checksums.txt
+	test -f dist/cpa/checksums-$(CPA_VERSION).txt || curl -fsSL -o dist/cpa/checksums-$(CPA_VERSION).txt $(CPA_URL)/checksums.txt
 	test -f dist/cpa/$(CPA_ASSET) || curl -fsSL -o dist/cpa/$(CPA_ASSET) $(CPA_URL)/$(CPA_ASSET)
 
 version:
@@ -120,3 +120,12 @@ version:
 
 clean:
 	rm -rf dist coverage.out
+
+# Local dashboard demo: official CPA + plugin + synthetic upstreams and traffic on http://127.0.0.1:18318.
+demo: cpa
+	$(LINUX_ONLY)
+	docker run --rm -it --platform linux/$(TARGET_ARCH) -p 127.0.0.1:18318:18318 --add-host api.anthropic.com:127.0.0.1 --add-host chatgpt.com:127.0.0.1 -e PLUGIN_ISOLATED_TEST=1 \
+		-v "$(CURDIR):/src" -w /src $(IMAGE) python3 tests/demo_stack.py dist/cpa/$(CPA_ASSET) $(LIB)
+
+web:
+	cd web && pnpm install --frozen-lockfile && pnpm build
