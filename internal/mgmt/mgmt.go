@@ -551,7 +551,7 @@ func (s *Server) export(pluginapi.ManagementRequest) pluginapi.ManagementRespons
 	return jsonResponse(http.StatusOK, map[string]any{
 		"generated_at": now, "plugin_version": info.Version, "runtime": map[string]any{
 			"worker_running": info.WorkerRunning, "worker_failed": info.WorkerFailed, "state_writable": info.StoreWritable,
-			"state_reason": info.StoreReason, "state_load": info.StoreLoad, "last_save_error": info.LastSaveError,
+			"state_reason": info.StoreReason, "state_load": info.StoreLoad, "save_failing": info.LastSaveError != "", // the error text can name the state path
 		},
 		"config": pub, "status": s.Router.Status(), "accounts": accounts, "decisions": decisions,
 		"sessions": len(s.Router.Sessions()),

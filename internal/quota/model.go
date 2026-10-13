@@ -216,11 +216,12 @@ func Assess(s Snapshot, model string, now time.Time, maxAge time.Duration) Asses
 		if !w.Full() {
 			continue
 		}
-		if w.ResetsAt != nil && w.ResetsAt.After(now) {
+		// A full window with no reported reset is exhausted until fresh data says otherwise.
+		if w.ResetsAt == nil || w.ResetsAt.After(now) {
 			if exhausted == "" {
 				exhausted = w.Key()
 			}
-			if w.ResetsAt.After(until) {
+			if w.ResetsAt != nil && w.ResetsAt.After(until) {
 				until = *w.ResetsAt
 			}
 		} else if pendingFull == "" {
@@ -229,7 +230,9 @@ func Assess(s Snapshot, model string, now time.Time, maxAge time.Duration) Asses
 	}
 	if exhausted != "" {
 		a.State, a.Reason = Exhausted, exhausted+"_exhausted"
-		a.Until = &until
+		if !until.IsZero() {
+			a.Until = &until
+		}
 		a.Remaining = 0
 		return a
 	}

@@ -121,8 +121,10 @@ binding key = (provider, model scope, session key). Model scope is the base
 model name (thinking suffix removed) or the provider, per `affinity_scope`.
 
 **Decision outcomes.** `affinity`, `inherited`, `new_session`, `no_session`,
-`failover` (temporary, binding kept), `rebind:<exhausted|auth_failed|removed|disabled|model_unavailable>`,
-`host_pinned`, `delegated:<reason>`, `shadow`.
+`failover` (temporary, binding kept), `rebind`, `host_pinned`, `delegated`. The
+reason is carried separately in `cause` (for example `exhausted:weekly_exhausted`,
+`auth_failed_401`, `removed`, `disabled`, `model_unavailable:opus`). Shadow mode
+records the same outcome with `applied: false`.
 
 **Rebind policy** (`rebind_policy`): `conservative` (default; rebind only on
 confirmed exhaustion, auth failure, removal, disablement, model ineligibility),
@@ -134,9 +136,13 @@ until credential stamp changes and a poll succeeds, or a later success on that
 account); 429 → quota exhaustion when provider headers say a window is
 rejected or the snapshot is at 100%, otherwise rate-limited cooldown; 408/5xx/0
 → transient (circuit after 3 within 5 minutes, open 1 min doubling to 10 min);
-404/400 on a model → model-scoped ineligibility for 10 minutes.
+404 on a model → model-scoped ineligibility for 10 minutes. (400 is not
+classified: it usually means a malformed client request, and blocking the model
+on that account would punish the account for the client's error.) A 429 when
+the snapshot already shows the window full is covered by quota assessment,
+which marks the account exhausted until the window's reset.
 
-**Policies.** As in the architecture document. Host priority always first;
+**Policies.** As in the architecture document. New sessions skip accounts below `new_session_min_remaining` while another account is rankable; when none is, those accounts are ranked by the policy rather than delegating to the host. Host priority always first;
 `manual_priority` adds plugin `account_priority` next; then the base policy.
 
 **Config** (flat keys under `plugins.configs.kpatdev-quota-router`; existing keys

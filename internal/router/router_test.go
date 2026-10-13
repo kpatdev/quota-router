@@ -16,10 +16,11 @@ import (
 var t0 = time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 
 type harness struct {
-	t   *testing.T
-	now time.Time
-	r   *Router
-	ids map[string]string // account → provider
+	t     *testing.T
+	now   time.Time
+	r     *Router
+	ids   map[string]string // account → provider
+	sizes map[string]int64  // credential file size, bumped by relogin
 }
 
 func newHarness(t *testing.T, mods ...func(*config.Config)) *harness {
@@ -29,7 +30,7 @@ func newHarness(t *testing.T, mods ...func(*config.Config)) *harness {
 	for _, m := range mods {
 		m(&cfg)
 	}
-	h := &harness{t: t, now: t0, ids: map[string]string{}}
+	h := &harness{t: t, now: t0, ids: map[string]string{}, sizes: map[string]int64{}}
 	h.r = New(cfg, func() time.Time { return h.now })
 	h.r.SetJitter(func() float64 { return 0.5 })
 	return h
@@ -43,9 +44,15 @@ func (h *harness) roster(provider string, ids ...string) {
 	}
 	var entries []RosterEntry
 	for id, p := range h.ids {
-		entries = append(entries, RosterEntry{ID: id, AuthIndex: "idx-" + id, Provider: p, Name: id})
+		entries = append(entries, RosterEntry{ID: id, AuthIndex: "idx-" + id, Provider: p, Name: id, Size: h.sizes[id]})
 	}
 	h.r.SyncRoster(entries)
+}
+
+// relogin simulates the credential file being rewritten.
+func (h *harness) relogin(id string) {
+	h.sizes[id]++
+	h.roster(h.ids[id])
 }
 
 func (h *harness) remove(id string) {
@@ -260,7 +267,12 @@ func TestAuthFailureRebindsAndRecoversOnRelogin(t *testing.T) {
 	if d.Cause != "auth_failed_401" {
 		t.Fatalf("cause %s", d.Cause)
 	}
+	// A successful poll with the same credential file does not clear a rejection
+	// (e.g. a disabled organization whose usage endpoint still answers).
+	h.poll("A", weekly(0, 10*time.Hour))
+	expect(t, h.pick("claude", "m", claudeSession("other"), "A", "B"), OutcomeNewSession, "B")
 	// Re-login rewrites the file; the verification poll succeeds and A is usable for new sessions.
+	h.relogin("A")
 	h.poll("A", weekly(0, 10*time.Hour))
 	expect(t, h.pick("claude", "m", claudeSession("new"), "A", "B"), OutcomeNewSession, "A")
 	expect(t, h.pick("claude", "m", s, "A", "B"), OutcomeAffinity, "B")
@@ -562,10 +574,43 @@ func TestRebindPolicies(t *testing.T) {
 		}
 		return h.pick("claude", "m", s, "B")
 	}
-	expect(t, run(config.RebindEager, false), OutcomeRebind, "B")
+	expect(t, run(config.RebindEager, false), OutcomeFailover, "B")
 	expect(t, run(config.RebindConservative, false), OutcomeFailover, "B")
 	expect(t, run(config.RebindNever, true), OutcomeFailover, "B")
 	expect(t, run(config.RebindConservative, true), OutcomeRebind, "B")
+}
+
+func TestEagerRebindsAfterFailoverSucceeds(t *testing.T) {
+	h := newHarness(t, func(c *config.Config) { c.RebindPolicy = config.RebindEager })
+	h.roster("claude", "A", "B")
+	h.poll("A", weekly(0, 10*time.Hour))
+	h.poll("B", weekly(0, 20*time.Hour))
+	s := claudeSession("s")
+	expect(t, h.pick("claude", "m", s, "A", "B"), OutcomeNewSession, "A")
+	expect(t, h.pick("claude", "m", s, "B"), OutcomeFailover, "B")
+	h.observe("claude", "m", "B", s, 200, nil)
+	expect(t, h.pick("claude", "m", s, "A", "B"), OutcomeAffinity, "B")
+}
+
+func TestHealthChecksApplyWithoutQuotaData(t *testing.T) {
+	h := newHarness(t)
+	h.roster("claude", "A", "B")
+	h.poll("B", weekly(0, 20*time.Hour))
+	s := claudeSession("s")
+	// A has no snapshot yet; a traffic 401 must still park it.
+	h.observe("claude", "m", "A", nil, 401, nil)
+	d := h.pick("claude", "m", s, "A", "B")
+	expect(t, d, OutcomeNewSession, "B")
+	if len(d.Skipped) != 1 || d.Skipped[0].Reason != "auth_failed_401" {
+		t.Fatalf("skipped: %+v", d.Skipped)
+	}
+}
+
+func TestFullWindowWithoutResetIsExhausted(t *testing.T) {
+	snap := quota.Snapshot{Windows: []quota.Window{{Kind: quota.Weekly, UsedPercent: 100, ObservedAt: t0, Source: quota.SourcePoll}}}
+	if a := quota.Assess(snap, "m", t0, 10*time.Minute); a.State != quota.Exhausted || a.Until != nil {
+		t.Fatalf("got %+v", a)
+	}
 }
 
 func TestHostPinnedAccount(t *testing.T) {

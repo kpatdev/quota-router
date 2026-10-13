@@ -204,7 +204,9 @@ func (r *Router) Pick(req PickRequest) Decision {
 			case config.RebindConservative:
 				rebind = permanent
 			case config.RebindEager:
-				rebind = true
+				// Temporary causes fail over first; learnLocked moves the binding once
+				// the alternative succeeds.
+				rebind = permanent
 			case config.RebindNever:
 				rebind = cause == "removed"
 			}
@@ -318,15 +320,21 @@ func (r *Router) evaluate(c Candidate, model string, now time.Time) *eval {
 	if strings.EqualFold(c.Status, "disabled") || (a != nil && a.Disabled) {
 		return block("disabled", true)
 	}
+	if a != nil && !a.Health.AuthFailedAt.IsZero() {
+		return block(fmt.Sprintf("auth_failed_%d", a.Health.AuthFailStatus), true)
+	}
 	if a == nil || !a.HasSnapshot {
+		if a != nil && now.Before(a.Health.RateLimitedUntil) {
+			return block("rate_limited", false)
+		}
+		if a != nil && now.Before(a.Health.CircuitUntil) {
+			return block("circuit_open", false)
+		}
 		e.usable = true
 		e.assessment = quota.Assessment{State: quota.Unknown, Reason: "no_quota_data", FiveHourUsed: -1}
 		return block("quota_unknown", false)
 	}
 	h := a.Health
-	if !h.AuthFailedAt.IsZero() {
-		return block(fmt.Sprintf("auth_failed_%d", h.AuthFailStatus), true)
-	}
 	e.assessment = quota.Assess(a.Snapshot, model, now, r.cfg.MaxAge)
 	if e.assessment.State == quota.Exhausted {
 		return block("exhausted:"+e.assessment.Reason, true)

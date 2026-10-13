@@ -23,7 +23,7 @@ A rewrite of the original quota-reset-router 0.2.1 scheduler into a session-awar
   - 401/403: account marked auth-failed until fresh evidence.
   - 429: window exhausted when the provider headers say so, otherwise a rate-limit cooldown.
   - 5xx and timeouts: circuit breaker (3 within 5 min; 1 min doubling to 10 min).
-  - 404/400 on a model: model-scoped block.
+  - 404 on a model: model-scoped block for 10 minutes. (400 is not classified, because it usually means a malformed client request.)
   - Temporary failures fail over for one request and keep the binding. Lasting failures rebind, per `rebind_policy` (`conservative`, `eager`, `never`).
 - **Policies:** `quota_pressure` (remaining ÷ hours to reset), `balanced` (five-hour soft limit), and `manual_priority` (`account_priority`, then a base policy), alongside the original `reset_first`.
 - **Quota model.**

@@ -30,6 +30,7 @@ const (
 // health is per-account failure state learned from real traffic and polls.
 type health struct {
 	AuthFailedAt     time.Time            `json:"auth_failed_at,omitempty"`
+	AuthFailStamp    string               `json:"auth_fail_stamp,omitempty"` // credential file stamp when the rejection was seen
 	AuthFailStatus   int                  `json:"auth_fail_status,omitempty"`
 	PollAuthRejected bool                 `json:"poll_auth_rejected,omitempty"`
 	RateLimitedUntil time.Time            `json:"rate_limited_until,omitempty"`
@@ -223,9 +224,13 @@ func (r *Router) ApplyPoll(authID string, snap quota.Snapshot, plan string, err 
 	a.PollFailures = 0
 	a.PollError = ""
 	a.Health.PollAuthRejected = false
-	// A working token proves a re-login or recovery; real traffic decides the rest.
-	a.Health.AuthFailedAt = time.Time{}
-	a.Health.AuthFailStatus = 0
+	// A rejected login is cleared by a successful poll only after the credential
+	// file changed (re-login or refresh); otherwise real traffic must succeed.
+	if a.Health.AuthFailStamp != a.Stamp {
+		a.Health.AuthFailedAt = time.Time{}
+		a.Health.AuthFailStatus = 0
+		a.Health.AuthFailStamp = ""
+	}
 	a.NextPoll = r.nextPoll(a.Snapshot, now)
 }
 
@@ -322,6 +327,7 @@ func (r *Router) Observe(o Outcome) {
 		h.RateLimitedUntil = time.Time{}
 		h.AuthFailedAt = time.Time{}
 		h.AuthFailStatus = 0
+		h.AuthFailStamp = ""
 		if fam := family(o.Model); fam != "" {
 			delete(h.ModelBlocked, fam)
 		}
@@ -339,6 +345,7 @@ func (r *Router) classifyFailure(a *account, o Outcome, now time.Time) {
 	case o.Status == 401 || o.Status == 403:
 		h.AuthFailedAt = now
 		h.AuthFailStatus = o.Status
+		h.AuthFailStamp = a.Stamp
 	case o.Status == 429:
 		retry := quota.RetryAfter(o.Headers.Get("Retry-After"), now)
 		if a.Provider == "claude" {
