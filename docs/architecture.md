@@ -196,8 +196,9 @@ complexity for no integrity gain over atomic rename (ADR 0003).
 ## Compatibility boundaries and gaps
 
 - **CPA Home dispatch** (`home.enabled: true`): local plugin schedulers and
-  plugin resources are bypassed by the host. The plugin stays loaded but routes
-  nothing; the dashboard reports it.
+  plugin resources are bypassed by the host. The plugin stays loaded but receives no
+  picks, so the Activity page shows no new decisions. The plugin cannot detect
+  Home mode itself because it never sees CPA's configuration.
 - **WebSocket**: CPA pins a Responses WebSocket connection to one account
   (`pinned_auth_id`); the plugin only ever sees that candidate and records it.
   Affinity across connections works through the session headers.

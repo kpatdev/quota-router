@@ -7,6 +7,7 @@ import http.server
 import json
 import os
 from pathlib import Path
+import re
 import ssl
 import subprocess
 import sys
@@ -237,39 +238,58 @@ def main():
             assert code == 0 and envelope["ok"], envelope
             return envelope["result"]
 
-        def status():
-            result = call(
-                "management.handle",
-                {
-                    "Method": "GET",
-                    "Path": "/v0/management/plugins/kpatdev-quota-router/status",
-                },
-            )
-            return json.loads(base64.b64decode(result["Body"]))
+        base = "/v0/management/plugins/kpatdev-quota-router"
 
-        def configure(mode, method="plugin.reconfigure"):
-            payload = {
-                "config_yaml": base64.b64encode(("mode: " + mode).encode()).decode()
-            }
-            reg = call(method, payload)
-            assert reg["schema_version"] == 6
-            assert reg["capabilities"] == {"scheduler": True, "management_api": True}
+        def mgmt(path, method="GET", body=None):
+            request = {"Method": method, "Path": base + path}
+            if body is not None:
+                request["Headers"] = {"Content-Type": ["application/json"]}
+                request["Body"] = base64.b64encode(json.dumps(body).encode()).decode()
+            result = call("management.handle", request)
+            return result["StatusCode"], json.loads(base64.b64decode(result["Body"]))
+
+        def status():
+            return mgmt("/status")[1]
+
+        def refreshed():
+            return {a["id"]: a.get("last_refresh_at") for a in mgmt("/accounts")[1]["accounts"]}
+
+        def wait_refresh(before, account_ids):
             end = time.monotonic() + 20
             while time.monotonic() < end:
-                data = status()
-                if len(data["accounts"]) == len(ids) and all(
-                    a.get("quota") for a in data["accounts"].values()
-                ):
+                now = refreshed()
+                if len(now) == len(ids) and all(now.get(i) and now.get(i) != before.get(i) for i in account_ids):
                     return
                 time.sleep(0.02)
             raise AssertionError(
                 "quota refresh did not complete: "
-                + json.dumps(status())
+                + json.dumps(refreshed())
                 + " callbacks="
                 + repr(callback_errors)
                 + " upstream="
                 + repr(upstream_requests)
             )
+
+        def refresh(auth_id=""):
+            before = refreshed()
+            code, body = mgmt("/refresh", "POST", {"auth_id": auth_id})
+            assert code == 202, (code, body)
+            wait_refresh(before, [auth_id] if auth_id else ids)
+
+        def configure(mode, method="plugin.reconfigure"):
+            payload = {
+                "config_yaml": base64.b64encode(
+                    f"mode: {mode}\nstate_dir: {tmp}/state".encode()
+                ).decode()
+            }
+            reg = call(method, payload)
+            assert reg["schema_version"] == 6
+            assert reg["capabilities"] == {
+                "scheduler": True,
+                "scheduler_across_priorities": True,
+                "usage_plugin": True,
+                "management_api": True,
+            }, reg["capabilities"]
 
         request = {
             "Provider": "claude",
@@ -286,11 +306,15 @@ def main():
             ],
         }
         configure("shadow", "plugin.register")
-        assert status()["version"] == "0.2.1"
+        wait_refresh({}, ids)
+        source = (Path(__file__).parent.parent / "internal/plugin/runtime.go").read_text()
+        version = re.search(r'const Version = "([^"]+)"', source).group(1)
+        assert status()["version"] == version
         assert status()["selection_policy"] == "weekly_reset_first"
         assert not call("scheduler.pick", request)["Handled"]
         assert status()["last_decision"]["auth_id"] == "z-five-hours"
-        assert status()["last_decision"]["reason"] == "earliest_weekly_reset"
+        assert status()["last_decision"]["outcome"] == "no_session"
+        assert not status()["last_decision"]["applied"]
         configure("active")
         for expected in reversed(claude_ids):
             result = call("scheduler.pick", request)
@@ -303,11 +327,11 @@ def main():
             for i in claude_ids
         ]
         exhausted.add("z-five-hours")
-        configure("active")
+        refresh("z-five-hours")
         assert call("scheduler.pick", request)["AuthID"] == "c-one-day"
         exhausted.clear()
         durations["z-five-hours"] = 169
-        configure("active")
+        refresh()
         assert call("scheduler.pick", request)["AuthID"] == "c-one-day"
         for i in range(500):
             assert call("scheduler.pick", request)["AuthID"] == "c-one-day"
@@ -329,14 +353,17 @@ def main():
         )
         call("plugin.quiesce", {})
         assert not call("scheduler.pick", request)["Handled"]
+        configure("active")
+        assert call("scheduler.pick", request)["AuthID"] == "c-one-day"
+        call("plugin.quiesce", {})
         api.shutdown()
         assert not allocations, "host response buffer leak"
         assert not callback_errors, callback_errors
         assert methods == {"host.auth.list", "host.auth.get"}, methods
-        assert len(upstream_requests) >= 16, upstream_requests
+        assert len(upstream_requests) >= 2 * len(ids) + 1, upstream_requests
         server.shutdown()
         print(
-            "PASS: release .so native ABI, TLS quota reads, shadow/active routing, reset rollover, exhaustion, 500 picks, quiesce, buffer ownership; no host writes"
+            "PASS: release .so native ABI, TLS quota reads, shadow/active routing, reset rollover, exhaustion, manual refresh, 500 picks, quiesce and resume, buffer ownership; no host writes"
         )
 
 

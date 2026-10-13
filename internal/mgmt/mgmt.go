@@ -140,13 +140,22 @@ func (s *Server) status(pluginapi.ManagementRequest) pluginapi.ManagementRespons
 	if ds := s.Router.Decisions("", "", 1); len(ds) > 0 {
 		last = &ds[0]
 	}
-	return jsonResponse(http.StatusOK, map[string]any{
-		"version": info.Version, "selection_policy": cfg.Strategy, "mode": cfg.Mode,
+	// The original plugin's fields keep their names and values; new fields are additive.
+	policy := cfg.Strategy
+	if policy == config.StrategyResetFirst {
+		policy = "weekly_reset_first"
+	}
+	out := map[string]any{
+		"version": info.Version, "selection_policy": policy, "strategy": cfg.Strategy, "mode": cfg.Mode,
 		"poll_interval": cfg.PollInterval.String(), "max_age": cfg.MaxAge.String(),
-		"accounts": accounts, "list_error": st.RosterError, "last_decision": last,
+		"accounts": accounts, "last_decision": last,
 		"picks": st.Counters.Picks, "routed": st.Counters.Routed, "worker_failed": info.WorkerFailed,
 		"sessions": st.Sessions, "counters": st.Counters,
-	})
+	}
+	if st.RosterError != "" {
+		out["list_error"] = st.RosterError
+	}
+	return jsonResponse(http.StatusOK, out)
 }
 
 type providerSummary struct {

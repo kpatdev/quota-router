@@ -277,6 +277,46 @@ func TestLegacyConfigAndReconfigureKeepState(t *testing.T) {
 	}
 }
 
+func TestQuiesceDeclinesPicksUntilReconfigured(t *testing.T) {
+	g := newRig(t, t.TempDir())
+	g.host.set("claude", "A")
+	g.fetcher.set("A", 0, time.Hour)
+	g.register("mode: active")
+	g.refreshQuota()
+	g.call(pluginabi.MethodPluginQuiesce, map[string]any{})
+	if got := g.pick("claude", "m", headersFor("claude", "s"), "A"); got != "" {
+		t.Fatalf("quiesced plugin routed to %q", got)
+	}
+	g.call(pluginabi.MethodPluginReconfigure, map[string]any{"config_yaml": []byte("mode: active\nstate_dir: " + g.dir)})
+	if got := g.pick("claude", "m", headersFor("claude", "s"), "A"); got != "A" {
+		t.Fatalf("reconfigured plugin did not route, got %q", got)
+	}
+}
+
+func TestStatusKeepsTheOriginalShape(t *testing.T) {
+	g := newRig(t, t.TempDir())
+	g.register("")
+	_, body := g.mgmt("GET", "/v0/management/plugins/kpatdev-quota-router/status", nil, "")
+	var st map[string]any
+	if err := json.Unmarshal([]byte(body), &st); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"selection_policy": "weekly_reset_first", "mode": "shadow", "poll_interval": "5m0s", "max_age": "10m0s", "worker_failed": false}
+	for k, v := range want {
+		if st[k] != v {
+			t.Errorf("%s = %v, want %v", k, st[k], v)
+		}
+	}
+	for _, k := range []string{"version", "accounts", "last_decision", "picks", "routed"} {
+		if _, ok := st[k]; !ok {
+			t.Errorf("missing %s", k)
+		}
+	}
+	if _, ok := st["list_error"]; ok {
+		t.Error("list_error present without an error")
+	}
+}
+
 func TestRegistrationDeclaresCapabilities(t *testing.T) {
 	g := newRig(t, t.TempDir())
 	raw, _ := json.Marshal(map[string]any{"config_yaml": []byte("state_dir: " + g.dir)})

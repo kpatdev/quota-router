@@ -159,6 +159,7 @@ kept):
 | `rebind_policy` | `conservative` | `conservative`, `eager`, `never` |
 | `pressure_min_hours` | `0.5` | 0.1–24 |
 | `balanced_five_hour_soft_limit` | `85` | 50–100 |
+| `new_session_min_remaining` | `5` | 0–50 (% left; new sessions only) |
 | `schedule_across_priorities` | `true` | bool |
 | `account_priority` | `{}` | map auth ID → int −1000..1000 |
 | `account_alias` | `{}` | map auth ID → string ≤ 40 printable chars |

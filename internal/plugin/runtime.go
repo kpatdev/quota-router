@@ -67,6 +67,7 @@ type Runtime struct {
 	failed      atomic.Bool
 	running     atomic.Bool
 	rosterEmpty atomic.Bool
+	quiesced    atomic.Bool // host is draining: decline picks until reconfigured
 	configErr   string
 }
 
@@ -127,6 +128,7 @@ func (p *Runtime) Handle(method string, raw []byte) (out []byte) {
 		p.Configure(cfg)
 		return success(registration(cfg))
 	case pluginabi.MethodPluginQuiesce:
+		p.quiesced.Store(true)
 		p.Stop()
 		return success(struct{}{})
 	case pluginabi.MethodPluginShutdown:
@@ -204,6 +206,7 @@ func (p *Runtime) Configure(cfg config.Config) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.configErr = ""
+	p.quiesced.Store(false)
 	if p.router == nil {
 		p.started = p.now()
 		p.router = router.New(cfg, p.Now)
@@ -529,7 +532,7 @@ func (p *Runtime) info() mgmt.RuntimeInfo {
 // Pick answers scheduler.pick.
 func (p *Runtime) Pick(req pluginapi.SchedulerPickRequest) pluginapi.SchedulerPickResponse {
 	r := p.routerOrNil()
-	if r == nil {
+	if r == nil || p.quiesced.Load() {
 		return pluginapi.SchedulerPickResponse{}
 	}
 	d := r.Pick(toPickRequest(req))
