@@ -156,6 +156,8 @@ Settings are saved through CPA's own `PATCH /v0/management/plugins/kpatdev-quota
 
 ## Configuration
 
+Quota polls use the account `proxy_url` first (`http`, `https`, `socks5`, or `socks5h`; CPA also supports `direct` and `none`), then `http.ProxyFromEnvironment`, then direct. Invalid account proxy settings fail with `invalid_proxy_url`. CPA's global `proxy-url` is not available separately through the native scheduler API. Its `host.http.do` callback follows redirects without a disable option, so the poller cannot use it while preserving bearer-token redirect protection. Set account proxies or process environment proxies for polling. Accounts with `base_url` remain unpolled.
+
 All keys go under `plugins.configs.kpatdev-quota-router`. `enabled` and `priority` belong to CPA.
 
 | Key | Default | Allowed | Purpose |
@@ -233,7 +235,7 @@ This fork is a drop-in replacement with a new plugin ID, `kpatdev-quota-router`,
 - **Identifiers are minimized.** Session IDs are stored only as truncated SHA-256 hashes of (client key scope, session ID). Account IDs are credential file names and often contain an email address. The dashboard displays them shortened (`claude-w•••@•••.example.json`) unless you set an `account_alias`. Exports replace them with opaque handles. Management API responses include full IDs, because actions such as refresh need them.
 - **Management key.** The dashboard keeps it in memory only. It is not written to `localStorage`, `sessionStorage`, cookies, or URLs. A 401 clears it.
 - **Static assets carry no data** and are served with a strict CSP (`default-src 'self'`, no inline scripts, no third-party origins, no analytics).
-- **Quota polling** goes directly to the two provider endpoints, without proxies or redirects. Credentials with `proxy_url` or `base_url` are not polled.
+- **Quota polling** uses account proxies, then environment proxies, then direct, and never follows redirects. Credentials with `base_url` are not polled. See the configuration reference for the global proxy limitation.
 - **Mutating routes** require JSON, cap bodies at 64 KiB, and the destructive one (clear sessions) requires an explicit confirmation string.
 
 The plugin runs inside the CPA process, like every native plugin, with access to CPA's credentials and traffic. Install it only from releases you can verify.

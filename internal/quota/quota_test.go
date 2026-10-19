@@ -309,7 +309,6 @@ func TestCredentialEligibilityAndCancellation(t *testing.T) {
 		func(c *Credential) { c.Disabled = true },
 		func(c *Credential) { c.Type = "unsupported" },
 		func(c *Credential) { c.AccessToken = "" },
-		func(c *Credential) { c.ProxyURL = "http://proxy.test" },
 		func(c *Credential) { c.BaseURL = "https://custom.test" },
 	} {
 		c := testCredential()
