@@ -87,7 +87,6 @@ func TestParseCodexRejectsAmbiguousOrInvalidWindows(t *testing.T) {
 		`{"rate_limit":{}}`,
 		`{"rate_limit":{"primary_window":{"used_percent":10,"limit_window_seconds":18000,"reset_at":1}}}`,
 		`{"rate_limit":{"primary_window":{"used_percent":101,"limit_window_seconds":18000,"reset_at":1}}}`,
-		`{"rate_limit":{"primary_window":{"used_percent":10,"limit_window_seconds":123,"reset_at":1}}}`,
 		`{"rate_limit":{"secondary_window":{"used_percent":10,"limit_window_seconds":604800}}}`,
 		`{"rate_limit":{"primary_window":{"used_percent":10,"limit_window_seconds":604800,"reset_at":5},"secondary_window":{"used_percent":10,"limit_window_seconds":604800,"reset_at":1}}}`,
 	} {
@@ -131,8 +130,8 @@ func TestPassiveHeadersNormalizeUnits(t *testing.T) {
 			t.Fatalf("accepted incomplete or out-of-range claude headers %v: %+v", bad, got)
 		}
 	}
-	if got := ParseCodexHeaders(http.Header{"X-Codex-Primary-Used-Percent": {"5"}, "X-Codex-Primary-Reset-After-Seconds": {"5"}}, testNow); len(got) != 0 {
-		t.Fatalf("codex window without length accepted: %+v", got)
+	if got := ParseCodexHeaders(http.Header{"X-Codex-Primary-Used-Percent": {"5"}, "X-Codex-Primary-Window-Minutes": {"300"}}, testNow); len(got) != 0 {
+		t.Fatalf("codex window without reset accepted: %+v", got)
 	}
 }
 

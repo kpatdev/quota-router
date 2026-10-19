@@ -26,7 +26,7 @@ Known limits of kpatdev-quota-router 1.0.0, grouped by cause. Each item says wha
   - Stale accounts take no new sessions.
 - **Resets are not assumed.** A window whose reset time has passed stays `reset_pending` until a poll confirms fresh quota. The plugin polls shortly after each reset, so the gap is usually under a minute. During it, a bound session on that account keeps its binding, but the account is not used for new sessions.
 - **Burn-rate estimates** (time to exhaustion) are a least-squares fit over recent quota samples within the current window. They need several samples, so they appear about 15 minutes after start or a reset. They assume the recent pace continues.
-- **Codex windows** are identified by `limit_window_seconds` (5 h, 7 d, 28–31 d). An unfamiliar window length is ignored.
+- **Codex windows** are classified by `limit_window_seconds` (5 h, 7 d, 28–31 d); passive headers use the equivalent `Window-Minutes` values. Unfamiliar lengths are skipped with a debug log while recognized windows are retained. Missing lengths default to five-hour for the primary window and weekly for the secondary window. If skipping an unfamiliar long window leaves no recognized long window, the account assesses as unknown for new sessions.
 - **Credentials with `proxy_url` or `base_url`** are not polled, because polling would bypass the configured proxy. Passive headers still update them.
 - **Token counts are not costs.** The Usage page reports what CPA reports per attempt (requests, input, output, cache reads and writes). It does not estimate money.
 
