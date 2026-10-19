@@ -83,3 +83,14 @@ func TestClaudeFableWindowExhaustsOnlyFableRequests(t *testing.T) {
 		t.Fatalf("unrelated model assessment: %+v", sonnet)
 	}
 }
+
+func TestParseClaudeFableNullTopLevelUsesLimits(t *testing.T) {
+	raw := []byte(`{"seven_day":{"utilization":20,"resets_at":"2026-10-26T12:00:00Z"},"seven_day_fable":null,"limits":[{"kind":"weekly_scoped","scope":{"model":{"display_name":"Fable"}},"percent":100,"resets_at":"2026-10-24T12:00:00Z","is_active":true}]}`)
+	snap, err := ParseClaudeUsage(raw, claudeFableNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fable, ok := snap.Window("model_weekly:fable"); !ok || fable.UsedPercent != 100 {
+		t.Fatalf("null seven_day_fable hid the limits[] window: %+v", snap.Windows)
+	}
+}

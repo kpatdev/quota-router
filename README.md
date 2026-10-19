@@ -179,6 +179,8 @@ All keys go under `plugins.configs.kpatdev-quota-router`. `enabled` and `priorit
 | `rebind_policy` | `conservative` | `conservative`, `eager`, `never` | when a session moves; see below |
 | `passive_quota` | `true` | bool | learn quota from response headers between polls |
 | `poll_interval` | `5m` | 1m–1h | quota refresh interval |
+| `passive_skip` | `1m` | 0s–1h | skip a regular poll when response headers updated the account this recently; `0` disables |
+| `passive_skip_max` | `30m` | 1m–24h | poll anyway once the last successful poll is this old |
 | `max_age` | `10m` | `poll_interval`–1h | quota older than this is stale and not used for new sessions |
 | `request_timeout` | `10s` | 1s–30s | timeout per quota request |
 | `state_dir` | `plugins/kpatdev-quota-router-data` | path | persistent state directory |

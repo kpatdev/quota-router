@@ -7,19 +7,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/proxyutil"
+	"golang.org/x/net/proxy"
 )
 
 const (
 	ClaudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
 	CodexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
 	maxUsageBytes  = 128 * 1024
+	// socksConnectTimeout bounds the TCP connect to a SOCKS proxy.
+	socksConnectTimeout = 10 * time.Second
 )
 
 // Credential is the subset of a CPA auth file needed to read quota. It is
@@ -116,6 +121,9 @@ func (f *HTTPFetcher) clientFor(raw string) (*http.Client, error) {
 		if err != nil || transport == nil || mode == proxyutil.ModeInherit {
 			return nil, &Error{Code: "invalid_proxy_url"}
 		}
+		if err := contextSOCKS(transport, raw); err != nil {
+			return nil, &Error{Code: "invalid_proxy_url"}
+		}
 		transport.MaxIdleConns = 2
 		transport.MaxIdleConnsPerHost = 1
 		if f.transports == nil {
@@ -126,6 +134,30 @@ func (f *HTTPFetcher) clientFor(raw string) (*http.Client, error) {
 	client := *f.Client
 	client.Transport = transport
 	return &client, nil
+}
+
+// contextSOCKS replaces the SDK's SOCKS dial, which ignores the request
+// context, so a proxy that stalls the handshake cannot outlive the poll.
+func contextSOCKS(transport *http.Transport, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "socks5" && u.Scheme != "socks5h") {
+		return nil
+	}
+	var auth *proxy.Auth
+	if u.User != nil {
+		password, _ := u.User.Password()
+		auth = &proxy.Auth{User: u.User.Username(), Password: password}
+	}
+	dialer, err := proxy.SOCKS5("tcp", u.Host, auth, &net.Dialer{Timeout: socksConnectTimeout})
+	if err != nil {
+		return err
+	}
+	cd, ok := dialer.(proxy.ContextDialer)
+	if !ok {
+		return errors.New("socks dialer lacks context support")
+	}
+	transport.DialContext = cd.DialContext
+	return nil
 }
 
 func (f *HTTPFetcher) Fetch(ctx context.Context, cred Credential) (Snapshot, error) {

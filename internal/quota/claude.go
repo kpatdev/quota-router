@@ -61,7 +61,8 @@ func ParseClaudeUsage(raw []byte, now time.Time) (Snapshot, error) {
 			snap.Windows = append(snap.Windows, w)
 		}
 	}
-	if _, ok := doc["seven_day_fable"]; !ok {
+	// A top-level seven_day_fable window takes precedence; a null one does not hide limits[].
+	if _, ok := snap.Window(Window{Kind: ModelWeekly, Family: "fable"}.Key()); !ok {
 		if raw, ok := doc["limits"]; ok {
 			w, present, err := claudeFablePollWindow(raw, now)
 			if err != nil {

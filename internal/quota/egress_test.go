@@ -2,6 +2,7 @@ package quota
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestAccountProxyEgress(t *testing.T) {
@@ -116,5 +118,45 @@ func TestEnvironmentEgress(t *testing.T) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s: %v: %s", mode, err, out)
 		}
+	}
+}
+
+// A SOCKS proxy that accepts TCP but never answers the handshake must not
+// leave the dial blocked past the poll's context.
+func TestStalledSOCKSHandshakeHonorsContext(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			defer c.Close()
+		}
+	}()
+	f := NewHTTPFetcher()
+	defer f.Close()
+	client, err := f.clientFor("socks5://" + ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.Transport.(*http.Transport).DialContext(ctx, "tcp", "api.anthropic.com:443")
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("stalled proxy dial succeeded")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("SOCKS dial ignored its context")
 	}
 }
