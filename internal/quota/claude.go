@@ -53,6 +53,11 @@ func ParseClaudeUsage(raw []byte, now time.Time) (Snapshot, error) {
 		if m == nil {
 			continue
 		}
+		// Other seven_day_* keys (seven_day_breakdown) are not windows; only
+		// objects that report utilization are.
+		if !hasUtilization(raw) {
+			continue
+		}
 		w, present, err := claudePollWindow(raw, ModelWeekly, m[1], now)
 		if err != nil {
 			return Snapshot{}, errors.New("invalid_model_window")
@@ -124,6 +129,15 @@ func claudeFablePollWindow(raw json.RawMessage, now time.Time) (Window, bool, er
 		window.ResetsAt = &resetsAt
 	}
 	return claudeWindowValue(window, ModelWeekly, "fable", now)
+}
+
+func hasUtilization(raw json.RawMessage) bool {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return false
+	}
+	_, ok := fields["utilization"]
+	return ok
 }
 
 func claudePollWindow(raw json.RawMessage, kind Kind, family string, now time.Time) (Window, bool, error) {

@@ -23,6 +23,8 @@ const (
 	ClaudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
 	CodexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
 	maxUsageBytes  = 128 * 1024
+	// claudeUserAgent identifies polls as Claude Code, which the usage endpoint expects.
+	claudeUserAgent = "claude-cli/2.1.280 (external, cli)"
 	// socksConnectTimeout bounds the TCP connect to a SOCKS proxy.
 	socksConnectTimeout = 10 * time.Second
 )
@@ -191,6 +193,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, cred Credential) (Snapshot, err
 	req.Header.Set("Accept", "application/json")
 	if provider == "claude" {
 		req.Header.Set("anthropic-beta", "oauth-2025-04-20")
+		req.Header.Set("User-Agent", claudeUserAgent)
 	} else {
 		req.Header.Set("User-Agent", "codex_cli_rs/0.76.0")
 		if strings.TrimSpace(cred.AccountID) != "" {

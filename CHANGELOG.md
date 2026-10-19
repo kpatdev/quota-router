@@ -10,6 +10,12 @@ A rewrite of the original quota-reset-router 0.2.1 scheduler into a session-awar
 - **Built against the CPA v8.0.27 SDK.** ABI 1 and schema 6 are unchanged, and the same library loads in CPA v7.3.15.
 - **New sessions skip nearly empty accounts** while another is ready (`new_session_min_remaining`, default 5 %). Set it to `0` for the original behaviour.
 
+### Fixed
+
+- **Claude quota polls failed on every account** once the usage response gained `seven_day_breakdown`, which was parsed as a model window (`invalid_model_window`). Claude accounts then went stale and could not take sessions. Only `seven_day_*` objects that report utilization are now treated as windows.
+- Claude polls send a Claude Code `User-Agent`.
+- The account table shows a failing poll (`Poll failing: <code>`) even after an earlier successful poll.
+
 ### Added
 
 - **Quota observation improvements.**
