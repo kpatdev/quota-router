@@ -27,7 +27,8 @@ Known limits of kpatdev-quota-router 1.0.0, grouped by cause. Each item says wha
 - **Resets are not assumed.** A window whose reset time has passed stays `reset_pending` until a poll confirms fresh quota. The plugin polls shortly after each reset, so the gap is usually under a minute. During it, a bound session on that account keeps its binding, but the account is not used for new sessions.
 - **Burn-rate estimates** (time to exhaustion) are a least-squares fit over recent quota samples within the current window. They need several samples, so they appear about 15 minutes after start or a reset. They assume the recent pace continues.
 - **Codex windows** are identified by `limit_window_seconds` (5 h, 7 d, 28–31 d). An unfamiliar window length is ignored.
-- **Credentials with `proxy_url` or `base_url`** are not polled, because polling would bypass the configured proxy. Passive headers still update them.
+- **Credentials with `base_url`** are not polled. Passive headers still update them. Account `proxy_url` is supported; malformed settings fail closed with `invalid_proxy_url`. Poll transports are cached per proxy URL and released on shutdown.
+- **Global CPA `proxy-url` is unavailable separately to native scheduler plugins.** CPA v8.0.27 exposes it through provider contexts, but not this plugin's lifecycle/auth callbacks. `host.http.do` applies the global proxy but follows redirects without a disable option. To preserve bearer-token redirect protection, quota polls instead use account `proxy_url`, then `http.ProxyFromEnvironment`, then direct. Configure an account proxy or process environment proxy when polling must use a proxy.
 - **Token counts are not costs.** The Usage page reports what CPA reports per attempt (requests, input, output, cache reads and writes). It does not estimate money.
 
 ## Routing behaviour

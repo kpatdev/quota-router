@@ -4,6 +4,10 @@
 
 **Blocked by:** 03 (touches the same poll path)
 
-**Status:** open
+**Status:** done
 
-- [ ] Tests for each precedence step and the parse-failure case
+Implemented cached account proxy transports, sanitized failures, and environment/direct fallback; documented the native API global-proxy limitation and redirect-safety constraint.
+
+- [x] Tests for account proxy precedence, environment/direct fallback, supported schemes, transport reuse, parse failure, sanitized errors/poll_error, and retained base_url skip
+- [x] Document global CPA proxy limitation in limitations and configuration reference
+- [x] go test ./..., go vet ./..., and go test -race ./internal/... pass
