@@ -4,8 +4,10 @@
 
 **Blocked by:** none
 
-**Status:** open
+**Status:** done
 
-- [ ] Poll and passive parsing produce a fable model-weekly window
-- [ ] A Fable request is not routed to an account whose Fable window is full
-- [ ] Tests with fixture payloads and headers
+**Note:** Poll and passive Fable observations feed the model-weekly window used for model assessment.
+
+- [x] Poll and passive parsing produce a fable model-weekly window
+- [x] A Fable request is not routed to an account whose Fable window is full
+- [x] Tests with fixture payloads and headers
