@@ -19,6 +19,8 @@ plugins:
       priority: 10
       mode: shadow             # switch to active after reviewing proposed routing
       strategy: reset_first
+      passive_skip: 1m
+      passive_skip_max: 30m
       affinity_enabled: true
       affinity_ttl: 3h
       affinity_inherit_parent: true

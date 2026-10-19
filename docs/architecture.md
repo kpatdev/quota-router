@@ -158,7 +158,8 @@ Evidence rules:
   until that window's reset (verified by the next poll).
 
 Polling uses read-only `GET` usage endpoints, never inference, with per-account
-exponential backoff and jitter, a poll shortly after each reset, and a
+exponential error backoff and jitter, clock-aligned regular polls, probes 30
+seconds before and after each reset, bounded passive skip, and a
 rate-limited manual refresh.
 
 ## Persistence
@@ -207,5 +208,6 @@ complexity for no integrity gain over atomic rename (ADR 0003).
 - **Multiple proxy instances** sharing one state directory: only the lock holder
   persists. Bindings are per instance; a load balancer in front of several
   proxies must itself be sticky.
-- **Credential proxies**: accounts with `proxy_url`/`base_url` are not polled
-  (polling would bypass the proxy); passive observation still applies.
+- **Credential proxies**: polls use the account `proxy_url`, then environment
+  proxies, then direct; a malformed `proxy_url` fails the poll. Accounts with
+  `base_url` are not polled; passive observation still applies.

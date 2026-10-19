@@ -43,6 +43,8 @@ type AccountView struct {
 	Present       bool         `json:"present"`
 	Disabled      bool         `json:"disabled"`
 	Unavailable   bool         `json:"unavailable"`
+	CooldownUntil *time.Time   `json:"cooldown_until,omitempty"`
+	CooldownStale bool         `json:"cooldown_stale"`
 	HostPriority  int          `json:"host_priority"`
 	PluginPrio    int          `json:"plugin_priority"`
 	Polled        bool         `json:"polled"`
@@ -150,7 +152,17 @@ func (r *Router) simulateLocked(provider, model, strategy string, now time.Time)
 	}
 	n := NextUp{Provider: provider, Model: model, Policy: strategy}
 	var order []*eval
+	var withheld []Skip
 	for _, c := range r.offeredCandidates(provider) {
+		// CPA does not offer accounts it is cooling down.
+		if a := r.accounts[c.ID]; a != nil && a.Unavailable && a.CooldownUntil.After(now) {
+			reason := "not_offered"
+			if staleCPACooldown(a, now) {
+				reason = "cooldown_stale"
+			}
+			withheld = append(withheld, Skip{AuthID: c.ID, Reason: reason})
+			continue
+		}
 		order = append(order, r.evaluate(c, model, now))
 	}
 	n.Ranked = r.rank(order, now, strategy)
@@ -159,6 +171,7 @@ func (r *Router) simulateLocked(provider, model, strategy string, now time.Time)
 			n.Skipped = append(n.Skipped, Skip{AuthID: e.c.ID, Reason: e.cause})
 		}
 	}
+	n.Skipped = append(n.Skipped, withheld...)
 	id, fallback := r.choose(order, n.Ranked, "")
 	n.AuthID, n.Fallback = id, fallback
 	switch {
@@ -230,6 +243,7 @@ func (r *Router) Accounts() []AccountView {
 		v := AccountView{
 			ID: a.ID, Display: a.Display, Alias: r.cfg.AccountAlias[a.ID], Provider: a.Provider, Plan: a.PlanType,
 			HostStatus: a.HostStatus, HostMessage: a.HostMessage, Present: a.Present, Disabled: a.Disabled, Unavailable: a.Unavailable,
+			CooldownUntil: tp(a.CooldownUntil), CooldownStale: staleCPACooldown(a, now),
 			HostPriority: a.Priority, PluginPrio: r.cfg.AccountPriority[a.ID], Polled: !a.Snapshot.PolledAt.IsZero(), PollError: a.PollError,
 			ActiveSess: active[a.ID], Preferred: preferred[a.ID], Rank: rankOf[a.ID],
 		}

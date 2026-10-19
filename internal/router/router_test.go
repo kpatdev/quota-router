@@ -713,8 +713,8 @@ func TestPollSchedulingBackoffAndResets(t *testing.T) {
 		t.Fatalf("new account not due: %+v", due)
 	}
 	h.poll("A", weekly(10, 2*time.Minute))
-	if next := h.r.NextPollAt(); !next.Equal(t0.Add(2*time.Minute + resetPollDelay)) {
-		t.Fatalf("poll must follow the reset: %s", next)
+	if next := h.r.NextPollAt(); !next.Equal(t0.Add(2*time.Minute - probeOffset)) {
+		t.Fatalf("poll must precede the reset: %s", next)
 	}
 	h.r.ApplyPoll("A", quota.Snapshot{}, "", &quota.Error{Code: "quota_http_500", Status: 500})
 	first := h.r.NextPollAt().Sub(h.now)
@@ -810,5 +810,134 @@ func TestHumanDurationsMatchTheDashboard(t *testing.T) {
 		if got := human(d); got != want {
 			t.Errorf("human(%v) = %q, want %q", d, got, want)
 		}
+	}
+}
+
+func TestStaleCPACooldownRule(t *testing.T) {
+	freshWindows := func() []quota.Window {
+		return []quota.Window{
+			{Kind: quota.FiveHour, UsedPercent: 50, ObservedAt: t0.Add(-time.Minute)},
+			{Kind: quota.Weekly, UsedPercent: 40, ObservedAt: t0.Add(-time.Minute)},
+		}
+	}
+	tests := []struct {
+		name        string
+		unavailable bool
+		retryAfter  time.Duration
+		windows     []quota.Window
+		want        bool
+	}{
+		{name: "all conditions hold", unavailable: true, retryAfter: 11 * time.Minute, windows: freshWindows(), want: true},
+		{name: "unavailable flag is required", retryAfter: 11 * time.Minute, windows: freshWindows()},
+		{name: "retry must exceed ten minutes", unavailable: true, retryAfter: 10 * time.Minute, windows: freshWindows()},
+		{name: "retry time is required", unavailable: true, windows: freshWindows()},
+		{name: "five-hour window is required", unavailable: true, retryAfter: 11 * time.Minute, windows: []quota.Window{{Kind: quota.Weekly, UsedPercent: 40, ObservedAt: t0.Add(-time.Minute)}}},
+		{name: "every observation must be younger than fifteen minutes", unavailable: true, retryAfter: 11 * time.Minute, windows: []quota.Window{
+			{Kind: quota.FiveHour, UsedPercent: 50, ObservedAt: t0.Add(-time.Minute)},
+			{Kind: quota.Weekly, UsedPercent: 40, ObservedAt: t0.Add(-15 * time.Minute)},
+		}},
+		{name: "fourteen-minute observations are fresh", unavailable: true, retryAfter: 11 * time.Minute, windows: []quota.Window{
+			{Kind: quota.FiveHour, UsedPercent: 50, ObservedAt: t0.Add(-14 * time.Minute)},
+			{Kind: quota.Weekly, UsedPercent: 40, ObservedAt: t0.Add(-14 * time.Minute)},
+		}, want: true},
+		{name: "every window must have more than 0.01 percent remaining", unavailable: true, retryAfter: 11 * time.Minute, windows: []quota.Window{
+			{Kind: quota.FiveHour, UsedPercent: 50, ObservedAt: t0.Add(-time.Minute)},
+			{Kind: quota.Weekly, UsedPercent: 99.99, ObservedAt: t0.Add(-time.Minute)},
+		}},
+		{name: "more than 0.01 percent remaining qualifies", unavailable: true, retryAfter: 11 * time.Minute, windows: []quota.Window{
+			{Kind: quota.FiveHour, UsedPercent: 50, ObservedAt: t0.Add(-time.Minute)},
+			{Kind: quota.Weekly, UsedPercent: 99.989, ObservedAt: t0.Add(-time.Minute)},
+		}, want: true},
+		{name: "a snapshot with no windows does not qualify", unavailable: true, retryAfter: 11 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.r.SyncRoster([]RosterEntry{{ID: "A", Provider: "claude", Unavailable: tt.unavailable, NextRetry: t0.Add(tt.retryAfter)}})
+			h.r.ApplyPoll("A", quota.Snapshot{Provider: "claude", PolledAt: t0, Identity: "identity-A", Windows: tt.windows}, "", nil)
+			accounts := h.r.Accounts()
+			if len(accounts) != 1 {
+				t.Fatalf("account view count %d, want 1", len(accounts))
+			}
+			if accounts[0].CooldownStale != tt.want {
+				t.Fatalf("cooldown_stale = %t, want %t", accounts[0].CooldownStale, tt.want)
+			}
+			if tt.want && (accounts[0].CooldownUntil == nil || !accounts[0].CooldownUntil.Equal(t0.Add(tt.retryAfter))) {
+				t.Fatalf("cooldown_until = %v, want %s", accounts[0].CooldownUntil, t0.Add(tt.retryAfter))
+			}
+		})
+	}
+}
+
+// CPA is authoritative about cooldowns: an offered account is usable even if
+// the last roster sync still showed it cooling down.
+func TestOfferedAccountIgnoresRosterCooldown(t *testing.T) {
+	h := newHarness(t)
+	h.ids["stale"] = "claude"
+	h.ids["ready"] = "claude"
+	h.r.SyncRoster([]RosterEntry{
+		{ID: "stale", Provider: "claude", Unavailable: true, NextRetry: t0.Add(30 * time.Minute)},
+		{ID: "ready", Provider: "claude"},
+	})
+	h.poll("stale", fiveHour(20, 4*time.Hour), weekly(30, 48*time.Hour))
+	h.poll("ready", fiveHour(20, 4*time.Hour), weekly(30, 72*time.Hour))
+	expect(t, h.pick("claude", "m", nil, "stale", "ready"), OutcomeNoSession, "stale")
+}
+
+func TestStaleCPACooldownAppearsInSkipReasons(t *testing.T) {
+	for _, offered := range []struct {
+		name       string
+		candidates []string
+	}{
+		{name: "CPA omitted account", candidates: []string{"ready"}},
+	} {
+		t.Run(offered.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.ids["stale"] = "claude"
+			h.ids["ready"] = "claude"
+			h.r.SyncRoster([]RosterEntry{
+				{ID: "stale", Provider: "claude", Unavailable: true, NextRetry: t0.Add(30 * time.Minute)},
+				{ID: "ready", Provider: "claude"},
+			})
+			h.poll("stale", fiveHour(20, 4*time.Hour), weekly(30, 48*time.Hour))
+			h.poll("ready", fiveHour(20, 4*time.Hour), weekly(30, 72*time.Hour))
+
+			d := h.pick("claude", "m", nil, offered.candidates...)
+			expect(t, d, OutcomeNoSession, "ready")
+			found := false
+			for _, skipped := range d.Skipped {
+				if skipped.AuthID == "stale" && skipped.Reason == "cooldown_stale" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("decision skipped list lacks stale CPA cooldown: %+v", d.Skipped)
+			}
+
+			nextUp := h.r.NextUp()
+			foundNextUp := false
+			for _, next := range nextUp {
+				if next.Provider != "claude" {
+					continue
+				}
+				foundNextUp = true
+				if next.AuthID != "ready" || len(next.Skipped) != 1 || next.Skipped[0].AuthID != "stale" || next.Skipped[0].Reason != "cooldown_stale" {
+					t.Fatalf("NextUp did not skip stale cooldown: %+v", next)
+				}
+			}
+			if !foundNextUp {
+				t.Fatal("NextUp did not return Claude")
+			}
+
+			var stale AccountView
+			for _, account := range h.r.Accounts() {
+				if account.ID == "stale" {
+					stale = account
+				}
+			}
+			if !stale.Unavailable || !stale.CooldownStale || stale.CooldownUntil == nil || !stale.CooldownUntil.Equal(t0.Add(30*time.Minute)) {
+				t.Fatalf("router changed or lost CPA cooldown state: %+v", stale)
+			}
+		})
 	}
 }

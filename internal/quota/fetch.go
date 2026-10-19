@@ -7,16 +7,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/proxyutil"
+	"golang.org/x/net/proxy"
 )
 
 const (
 	ClaudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
 	CodexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
 	maxUsageBytes  = 128 * 1024
+	// socksConnectTimeout bounds the TCP connect to a SOCKS proxy.
+	socksConnectTimeout = 10 * time.Second
 )
 
 // Credential is the subset of a CPA auth file needed to read quota. It is
@@ -60,19 +68,21 @@ type Fetcher interface {
 	Fetch(context.Context, Credential) (Snapshot, error)
 }
 
-// HTTPFetcher polls the provider usage endpoints directly.
+// HTTPFetcher polls the provider usage endpoints.
 type HTTPFetcher struct {
-	Client *http.Client
-	Now    func() time.Time
+	Client     *http.Client
+	mu         sync.Mutex
+	transports map[string]*http.Transport
+	Now        func() time.Time
 	// ClaudeURL and CodexURL override the endpoints in tests.
 	ClaudeURL, CodexURL string
 }
 
 // NewHTTPFetcher returns a fetcher that never follows redirects (which could
-// forward the bearer token) and ignores proxy environment variables.
+// forward the bearer token) and honors proxy environment variables when no account proxy is set.
 func NewHTTPFetcher() *HTTPFetcher {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
+	transport.Proxy = http.ProxyFromEnvironment
 	transport.MaxIdleConns = 2
 	transport.MaxIdleConnsPerHost = 1
 	return &HTTPFetcher{
@@ -85,16 +95,83 @@ func NewHTTPFetcher() *HTTPFetcher {
 }
 
 // Close releases idle connections.
-func (f *HTTPFetcher) Close() { f.Client.CloseIdleConnections() }
+func (f *HTTPFetcher) Close() {
+	f.Client.CloseIdleConnections()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for key, transport := range f.transports {
+		transport.CloseIdleConnections()
+		delete(f.transports, key)
+	}
+}
+
+// clientFor caches account transports without exposing proxy URLs in errors.
+func (f *HTTPFetcher) clientFor(raw string) (*http.Client, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return f.Client, nil
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	transport := f.transports[raw]
+	if transport == nil {
+		var mode proxyutil.Mode
+		var err error
+		transport, mode, err = proxyutil.BuildHTTPTransport(raw)
+		if err != nil || transport == nil || mode == proxyutil.ModeInherit {
+			return nil, &Error{Code: "invalid_proxy_url"}
+		}
+		if err := contextSOCKS(transport, raw); err != nil {
+			return nil, &Error{Code: "invalid_proxy_url"}
+		}
+		transport.MaxIdleConns = 2
+		transport.MaxIdleConnsPerHost = 1
+		if f.transports == nil {
+			f.transports = make(map[string]*http.Transport)
+		}
+		f.transports[raw] = transport
+	}
+	client := *f.Client
+	client.Transport = transport
+	return &client, nil
+}
+
+// contextSOCKS replaces the SDK's SOCKS dial, which ignores the request
+// context, so a proxy that stalls the handshake cannot outlive the poll.
+func contextSOCKS(transport *http.Transport, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "socks5" && u.Scheme != "socks5h") {
+		return nil
+	}
+	var auth *proxy.Auth
+	if u.User != nil {
+		password, _ := u.User.Password()
+		auth = &proxy.Auth{User: u.User.Username(), Password: password}
+	}
+	dialer, err := proxy.SOCKS5("tcp", u.Host, auth, &net.Dialer{Timeout: socksConnectTimeout})
+	if err != nil {
+		return err
+	}
+	cd, ok := dialer.(proxy.ContextDialer)
+	if !ok {
+		return errors.New("socks dialer lacks context support")
+	}
+	transport.DialContext = cd.DialContext
+	return nil
+}
 
 func (f *HTTPFetcher) Fetch(ctx context.Context, cred Credential) (Snapshot, error) {
 	provider := strings.ToLower(strings.TrimSpace(cred.Type))
 	if (provider != "claude" && provider != "codex") || cred.Disabled || strings.TrimSpace(cred.AccessToken) == "" {
 		return Snapshot{}, &Error{Code: "ineligible_credential"}
 	}
-	// Polling connects directly; refuse rather than bypass a per-account proxy or endpoint.
-	if cred.ProxyURL != "" || cred.BaseURL != "" {
+	// Custom provider endpoints are not supported by the usage parsers.
+	if cred.BaseURL != "" {
 		return Snapshot{}, &Error{Code: "custom_transport_unsupported"}
+	}
+	client, err := f.clientFor(cred.ProxyURL)
+	if err != nil {
+		return Snapshot{}, err
 	}
 	url := ClaudeUsageURL
 	if f.ClaudeURL != "" {
@@ -120,7 +197,7 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, cred Credential) (Snapshot, err
 			req.Header.Set("Chatgpt-Account-Id", cred.AccountID)
 		}
 	}
-	resp, err := f.Client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return Snapshot{}, &Error{Code: "quota_canceled"}

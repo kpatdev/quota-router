@@ -83,6 +83,16 @@ export function AccountTable({
                     <div style={{ minWidth: 0 }}>
                       <div className="acct-name" title={a.alias ? a.display : undefined}>
                         {label(a)}
+                        {a.cooldown_stale && (
+                          <span
+                            className="pill warning"
+                            title="Quota is fresh and has remaining capacity, but CPA still holds this account in cooldown. Clear the cooldown in CPA."
+                            aria-label="Stale CPA cooldown"
+                            style={{ marginLeft: 6, verticalAlign: -1 }}
+                          >
+                            CPA cooldown stale
+                          </span>
+                        )}
                         {a.preferred && (
                           <span className="star" role="img" title="Next new session goes here" aria-label="preferred for new sessions" style={{ marginLeft: 6, verticalAlign: -1, display: "inline-flex" }}>
                             <IconStar />

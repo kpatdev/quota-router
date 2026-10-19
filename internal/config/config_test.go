@@ -88,3 +88,19 @@ func TestSchemaCoversEveryScalarSetting(t *testing.T) {
 		}
 	}
 }
+
+func TestPassiveSkipSettings(t *testing.T) {
+	for _, raw := range []string{"passive_skip: -1s", "passive_skip: 2h", "passive_skip_max: 0s", "passive_skip_max: 25h"} {
+		if _, err := Decode([]byte(raw)); err == nil {
+			t.Fatalf("accepted %q", raw)
+		}
+	}
+	cfg, err := Decode([]byte("passive_skip: 0s\npassive_skip_max: 1h"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	patched, err := DecodeJSONPatch(cfg, []byte(`{"passive_skip":"20s"}`))
+	if err != nil || patched.Public()["passive_skip"] != "20s" || patched.Public()["passive_skip_max"] != "1h0m0s" {
+		t.Fatalf("patch: %+v %v", patched, err)
+	}
+}

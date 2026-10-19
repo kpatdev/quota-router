@@ -56,7 +56,7 @@ A drop-in replacement for the plugin (same plugin ID and config keys) that:
 20. As an operator, I want the scheduler to defer to CPA when it has no trustworthy quota data, so that it never routes on guesses.
 21. As an operator, I want five-hour, weekly, monthly, and model-specific windows treated with their own semantics, so that a Sonnet limit does not block Opus.
 22. As an operator, I want an exhausted window to stay exhausted until fresh data proves the reset, so that a passed timestamp alone never re-enables an account.
-23. As an operator, I want quota to refresh on an interval with jitter and backoff, and shortly after each expected reset, so that data stays fresh without hammering endpoints.
+23. As an operator, I want quota to refresh on clock-aligned intervals with error backoff, and before and after each expected reset, so that data stays fresh without hammering endpoints.
 24. As an operator, I want quota observed from real response headers, so that busy accounts stay fresh between polls.
 25. As an operator, I want a rate-limited manual refresh, so that I can check an account on demand.
 26. As an operator, I want 401/403 to park an account until it is re-logged-in and verified, so that a dead login stops receiving traffic.
@@ -156,6 +156,8 @@ kept):
 | `poll_interval` | `5m` | 1m–1h |
 | `max_age` | `10m` | poll_interval–1h |
 | `request_timeout` | `10s` | 1s–30s |
+| `passive_skip` | `1m` | 0s–1h; 0 disables regular-poll skipping |
+| `passive_skip_max` | `30m` | 1m–24h; maximum successful-poll age for skipping |
 | `passive_quota` | `true` | bool |
 | `affinity_enabled` | `true` | bool |
 | `affinity_ttl` | `3h` | 5m–7d |
@@ -230,3 +232,12 @@ the plugin reports the new config generation.
   as described in README.md (user-approved 2026-10-13).
 - Quota endpoints are undocumented; parsers are tolerant of unknown fields and
   fail closed (unknown) on missing required windows.
+
+Regular polls align to wall-clock multiples of `poll_interval`, with a stable
+per-account offset under five seconds. Reset probes run 30 seconds before and
+after each known reset. A window observed at or after probe time minus 10 seconds,
+or an account polled within 10 seconds, suppresses that probe. Pre-reset probes
+expire at reset; post-reset probes expire at reset plus 10 minutes. Error backoff
+also gates probes. Passive observations can skip regular polls only while the
+last successful poll is younger than `passive_skip_max`; manual refreshes and
+reset probes bypass passive skip.

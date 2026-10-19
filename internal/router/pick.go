@@ -139,11 +139,13 @@ func (r *Router) Pick(req PickRequest) Decision {
 		d.sessionFull = req.Session.Key
 	}
 	evals := make(map[string]*eval, len(req.Candidates))
+	offered := make(map[string]bool, len(req.Candidates))
 	var order []*eval
 	for _, c := range req.Candidates {
 		if c.ID == "" {
 			continue
 		}
+		offered[c.ID] = true
 		e := r.evaluate(c, req.Model, now)
 		evals[c.ID] = e
 		order = append(order, e)
@@ -164,6 +166,16 @@ func (r *Router) Pick(req PickRequest) Decision {
 		if !e.rankable {
 			d.Skipped = append(d.Skipped, Skip{AuthID: e.c.ID, Reason: e.cause})
 		}
+	}
+	var absentStale []string
+	for id, a := range r.accounts {
+		if a.Present && a.Provider == provider && !offered[id] && staleCPACooldown(a, now) {
+			absentStale = append(absentStale, id)
+		}
+	}
+	sort.Strings(absentStale)
+	for _, id := range absentStale {
+		d.Skipped = append(d.Skipped, Skip{AuthID: id, Reason: "cooldown_stale"})
 	}
 
 	if req.PinnedAuthID != "" {

@@ -12,6 +12,14 @@ A rewrite of the original quota-reset-router 0.2.1 scheduler into a session-awar
 
 ### Added
 
+- **Quota observation improvements.**
+  - Claude's Fable weekly limit is read from the usage `limits[]` list and the `7d_oi` headers, so Fable requests avoid accounts that have used it up.
+  - Regular polls align to the clock. Extra polls run 30 s before and after each known reset.
+  - A scheduled poll is skipped when response headers updated the account within `passive_skip` (default 1 m), until the last poll is older than `passive_skip_max` (default 30 m).
+  - Polls use the account `proxy_url`, then environment proxies, then direct. A malformed proxy fails the poll instead of connecting directly.
+  - A CPA cooldown that outlasts fresh, available quota is flagged on the dashboard and in skip reasons. It is never cleared automatically.
+  - A Codex window of unfamiliar length is skipped instead of failing the poll.
+
 - **Session affinity.**
   - Sessions are identified from Claude Code, Codex CLI, and generic session headers, using CPA's own precedence. A test checks parity with CPA's extractor.
   - The session ID is hashed with the client's key scope, so clients never share a session.
