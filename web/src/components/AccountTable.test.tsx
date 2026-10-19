@@ -42,4 +42,11 @@ describe("AccountTable", () => {
     expect(badge.classList.contains("warning")).toBe(true);
     expect(badge.getAttribute("title")).toContain("Clear the cooldown in CPA");
   });
+
+  it("shows a failing poll even after an earlier successful one", () => {
+    const failing: Account = { ...account, unavailable: false, cooldown_stale: false, routing: "blocked", routing_reason: "quota_stale", poll_error: "invalid_model_window", last_poll_at: "2026-10-13T11:00:00Z" };
+    render(<AccountTable accounts={[failing]} now={NOW} onOpen={() => {}} />);
+
+    expect(screen.getByText("Poll failing: invalid_model_window")).toBeTruthy();
+  });
 });

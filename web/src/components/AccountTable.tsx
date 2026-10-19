@@ -123,8 +123,9 @@ export function AccountTable({
                 <td data-label="Status">
                   <RoutingPill a={a} />
                   {a.routing !== "eligible" && a.routing_reason && <div className="faint" style={{ fontSize: 11, marginTop: 3, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reason(a.routing_reason)}</div>}
+                  {a.poll_error && <div title={a.poll_error} style={{ color: "var(--critical)", fontSize: 11, marginTop: 3 }}>Poll failing: {a.poll_error}</div>}
                 </td>
-                <td data-label="Refreshed" className="nowrap faint hide-md">{refreshed ? relative(refreshed, now) : a.poll_error ? <span style={{ color: "var(--critical)" }}>failed</span> : "never"}</td>
+                <td data-label="Refreshed" className="nowrap faint hide-md">{refreshed && relative(refreshed, now)}{a.poll_error ? <span title={a.poll_error} style={{ color: "var(--critical)" }}>{refreshed ? " · " : ""}failed</span> : !refreshed && "never"}</td>
                 {onRefresh && (
                   <td data-label="" className="right">
                     <button
