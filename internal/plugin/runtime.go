@@ -24,7 +24,7 @@ import (
 )
 
 // Version is the plugin release version.
-const Version = "1.0.0"
+const Version = "1.1.0"
 
 const (
 	rosterEvery    = 30 * time.Second
