@@ -152,7 +152,17 @@ func (r *Router) simulateLocked(provider, model, strategy string, now time.Time)
 	}
 	n := NextUp{Provider: provider, Model: model, Policy: strategy}
 	var order []*eval
+	var withheld []Skip
 	for _, c := range r.offeredCandidates(provider) {
+		// CPA does not offer accounts it is cooling down.
+		if a := r.accounts[c.ID]; a != nil && a.Unavailable && a.CooldownUntil.After(now) {
+			reason := "not_offered"
+			if staleCPACooldown(a, now) {
+				reason = "cooldown_stale"
+			}
+			withheld = append(withheld, Skip{AuthID: c.ID, Reason: reason})
+			continue
+		}
 		order = append(order, r.evaluate(c, model, now))
 	}
 	n.Ranked = r.rank(order, now, strategy)
@@ -161,6 +171,7 @@ func (r *Router) simulateLocked(provider, model, strategy string, now time.Time)
 			n.Skipped = append(n.Skipped, Skip{AuthID: e.c.ID, Reason: e.cause})
 		}
 	}
+	n.Skipped = append(n.Skipped, withheld...)
 	id, fallback := r.choose(order, n.Ranked, "")
 	n.AuthID, n.Fallback = id, fallback
 	switch {

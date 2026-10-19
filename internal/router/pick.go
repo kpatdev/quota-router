@@ -329,10 +329,6 @@ func (r *Router) evaluate(c Candidate, model string, now time.Time) *eval {
 		e.cause, e.permanent = cause, permanent
 		return e
 	}
-	if staleCPACooldown(a, now) {
-		e.assessment = quota.Assess(a.Snapshot, model, now, r.cfg.MaxAge)
-		return block("cooldown_stale", false)
-	}
 	if strings.EqualFold(c.Status, "disabled") || (a != nil && a.Disabled) {
 		return block("disabled", true)
 	}

@@ -869,13 +869,27 @@ func TestStaleCPACooldownRule(t *testing.T) {
 	}
 }
 
+// CPA is authoritative about cooldowns: an offered account is usable even if
+// the last roster sync still showed it cooling down.
+func TestOfferedAccountIgnoresRosterCooldown(t *testing.T) {
+	h := newHarness(t)
+	h.ids["stale"] = "claude"
+	h.ids["ready"] = "claude"
+	h.r.SyncRoster([]RosterEntry{
+		{ID: "stale", Provider: "claude", Unavailable: true, NextRetry: t0.Add(30 * time.Minute)},
+		{ID: "ready", Provider: "claude"},
+	})
+	h.poll("stale", fiveHour(20, 4*time.Hour), weekly(30, 48*time.Hour))
+	h.poll("ready", fiveHour(20, 4*time.Hour), weekly(30, 72*time.Hour))
+	expect(t, h.pick("claude", "m", nil, "stale", "ready"), OutcomeNoSession, "stale")
+}
+
 func TestStaleCPACooldownAppearsInSkipReasons(t *testing.T) {
 	for _, offered := range []struct {
 		name       string
 		candidates []string
 	}{
 		{name: "CPA omitted account", candidates: []string{"ready"}},
-		{name: "candidate skipped", candidates: []string{"stale", "ready"}},
 	} {
 		t.Run(offered.name, func(t *testing.T) {
 			h := newHarness(t)
