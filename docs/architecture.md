@@ -158,7 +158,8 @@ Evidence rules:
   until that window's reset (verified by the next poll).
 
 Polling uses read-only `GET` usage endpoints, never inference, with per-account
-exponential backoff and jitter, a poll shortly after each reset, and a
+exponential error backoff and jitter, clock-aligned regular polls, probes 30
+seconds before and after each reset, bounded passive skip, and a
 rate-limited manual refresh.
 
 ## Persistence
