@@ -94,6 +94,10 @@ describe("reason", () => {
     expect(reason("low_headroom:3")).toContain("3%");
   });
 
+  it("explains stale CPA cooldown skips", () => {
+    expect(reason("cooldown_stale")).toContain("Clear the cooldown in CPA");
+  });
+
   it("explains learned reasons with the underlying reason", () => {
     expect(reason("learned:removed")).toContain("Credential removed");
   });

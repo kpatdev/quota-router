@@ -43,6 +43,8 @@ type AccountView struct {
 	Present       bool         `json:"present"`
 	Disabled      bool         `json:"disabled"`
 	Unavailable   bool         `json:"unavailable"`
+	CooldownUntil *time.Time   `json:"cooldown_until,omitempty"`
+	CooldownStale bool         `json:"cooldown_stale"`
 	HostPriority  int          `json:"host_priority"`
 	PluginPrio    int          `json:"plugin_priority"`
 	Polled        bool         `json:"polled"`
@@ -230,6 +232,7 @@ func (r *Router) Accounts() []AccountView {
 		v := AccountView{
 			ID: a.ID, Display: a.Display, Alias: r.cfg.AccountAlias[a.ID], Provider: a.Provider, Plan: a.PlanType,
 			HostStatus: a.HostStatus, HostMessage: a.HostMessage, Present: a.Present, Disabled: a.Disabled, Unavailable: a.Unavailable,
+			CooldownUntil: tp(a.CooldownUntil), CooldownStale: staleCPACooldown(a, now),
 			HostPriority: a.Priority, PluginPrio: r.cfg.AccountPriority[a.ID], Polled: !a.Snapshot.PolledAt.IsZero(), PollError: a.PollError,
 			ActiveSess: active[a.ID], Preferred: preferred[a.ID], Rank: rankOf[a.ID],
 		}

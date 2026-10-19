@@ -26,6 +26,9 @@ const (
 	probeOffset        = 30 * time.Second
 	probeTolerance     = 10 * time.Second
 	probeLate          = 10 * time.Minute
+	staleCooldownMin   = 10 * time.Minute
+	staleQuotaMaxAge   = 15 * time.Minute
+	staleMinRemaining  = 0.01
 )
 
 // health is per-account failure state learned from real traffic and polls.
@@ -46,23 +49,23 @@ type health struct {
 }
 
 type account struct {
-	ID          string
-	AuthIndex   string
-	Provider    string
-	Display     string
-	PlanType    string
-	HostStatus  string
-	HostMessage string
-	Disabled    bool
-	Unavailable bool
-	RuntimeOnly bool
-	CustomURL   bool
-	Priority    int
-	NextRetry   time.Time
-	Present     bool
-	RemovedAt   time.Time
-	Stamp       string
-	Identity    string
+	ID            string
+	AuthIndex     string
+	Provider      string
+	Display       string
+	PlanType      string
+	HostStatus    string
+	HostMessage   string
+	Disabled      bool
+	Unavailable   bool
+	CooldownUntil time.Time
+	RuntimeOnly   bool
+	CustomURL     bool
+	Priority      int
+	Present       bool
+	RemovedAt     time.Time
+	Stamp         string
+	Identity      string
 
 	Snapshot    quota.Snapshot
 	HasSnapshot bool
@@ -116,10 +119,13 @@ func (r *Router) SyncRoster(entries []RosterEntry) {
 		a.HostMessage = sanitizeMessage(e.StatusMsg)
 		a.Disabled = e.Disabled || strings.EqualFold(e.Status, "disabled")
 		a.Unavailable = e.Unavailable
+		a.CooldownUntil = time.Time{}
+		if a.Unavailable {
+			a.CooldownUntil = e.NextRetry
+		}
 		a.RuntimeOnly = e.RuntimeOnly
 		a.CustomURL = e.BaseURL != ""
 		a.Priority = e.Priority
-		a.NextRetry = e.NextRetry
 		a.Present = true
 		a.RemovedAt = time.Time{}
 	}
@@ -138,6 +144,24 @@ func (r *Router) SyncRoster(entries []RosterEntry) {
 	r.rosterErr = ""
 	r.rosterAt = now
 	r.dirty = true
+}
+
+// staleCPACooldown detects a long CPA cooldown despite fresh, available quota.
+func staleCPACooldown(a *account, now time.Time) bool {
+	if a == nil || !a.Unavailable || !a.CooldownUntil.After(now.Add(staleCooldownMin)) {
+		return false
+	}
+	hasFiveHour := false
+	for _, w := range a.Snapshot.Windows {
+		if w.Kind == quota.FiveHour {
+			hasFiveHour = true
+		}
+		// Comparing utilization preserves the strict 0.01% remaining boundary.
+		if now.Sub(w.ObservedAt) >= staleQuotaMaxAge || w.UsedPercent >= 100-staleMinRemaining {
+			return false
+		}
+	}
+	return hasFiveHour
 }
 
 // RosterFailed records that the credential listing could not be read.
