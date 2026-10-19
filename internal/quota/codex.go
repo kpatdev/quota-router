@@ -3,6 +3,7 @@ package quota
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -15,10 +16,6 @@ const (
 	weekSeconds     = 604800
 	monthMinSeconds = 2419200
 	monthMaxSeconds = 2678400
-	fiveHourMinutes = 300
-	weekMinutes     = 10080
-	monthMinMinutes = 40320
-	monthMaxMinutes = 44640
 )
 
 // ParseCodexUsage parses GET https://chatgpt.com/backend-api/wham/usage.
@@ -34,12 +31,20 @@ func ParseCodexUsage(raw []byte, now time.Time) (Snapshot, error) {
 	}
 	snap := Snapshot{Provider: "codex", PlanType: stringValue(doc, "plan_type", "planType")}
 	hasLong := false
+	skippedUnknown := false
 	for index, names := range [][2]string{{"primary_window", "primaryWindow"}, {"secondary_window", "secondaryWindow"}} {
 		windowRaw, ok := mapValue(rateLimit, names[0], names[1])
 		if !ok {
 			continue
 		}
-		w, valid := parseCodexWindow(windowRaw, now, index)
+		seconds, hasSeconds := numberValue(windowRaw, "limit_window_seconds", "limitWindowSeconds")
+		kind, recognized := codexWindowKind(seconds, hasSeconds, index)
+		if !recognized {
+			slog.Debug("ignoring Codex quota window with unrecognized length", "window", names[0], "limit_window_seconds", seconds)
+			skippedUnknown = true
+			continue
+		}
+		w, valid := parseCodexWindow(windowRaw, now, kind)
 		if !valid {
 			return Snapshot{}, errors.New("invalid_codex_window")
 		}
@@ -53,31 +58,36 @@ func ParseCodexUsage(raw []byte, now time.Time) (Snapshot, error) {
 		}
 		snap.Windows = append(snap.Windows, w)
 	}
-	if !hasLong {
+	if !hasLong && !skippedUnknown {
 		return Snapshot{}, errors.New("invalid_codex_long_window")
 	}
 	snap.sort()
 	return snap, nil
 }
 
-func parseCodexWindow(raw map[string]any, now time.Time, position int) (Window, bool) {
+func codexWindowKind(seconds float64, hasSeconds bool, position int) (Kind, bool) {
+	if !hasSeconds {
+		if position == 0 {
+			return FiveHour, true
+		}
+		return Weekly, true
+	}
+	switch {
+	case seconds == fiveHourSeconds:
+		return FiveHour, true
+	case seconds == weekSeconds:
+		return Weekly, true
+	case seconds >= monthMinSeconds && seconds <= monthMaxSeconds:
+		return Monthly, true
+	default:
+		return "", false
+	}
+}
+
+func parseCodexWindow(raw map[string]any, now time.Time, kind Kind) (Window, bool) {
 	used, ok := numberValue(raw, "used_percent", "usedPercent")
 	if !ok || !validPercent(used) {
 		return Window{}, false
-	}
-	seconds, hasSeconds := numberValue(raw, "limit_window_seconds", "limitWindowSeconds")
-	kind := Weekly
-	switch {
-	case hasSeconds && seconds == fiveHourSeconds:
-		kind = FiveHour
-	case hasSeconds && seconds == weekSeconds:
-		kind = Weekly
-	case hasSeconds && seconds >= monthMinSeconds && seconds <= monthMaxSeconds:
-		kind = Monthly
-	case hasSeconds:
-		return Window{}, false
-	case position == 0:
-		kind = FiveHour
 	}
 	if allowed, ok := boolValue(raw, "allowed"); ok && !allowed {
 		used = 100
@@ -107,15 +117,15 @@ func codexResetAt(raw map[string]any, now time.Time) (time.Time, bool) {
 }
 
 // ParseCodexHeaders reads X-Codex-{Primary,Secondary}-* response headers.
-// Used-Percent is already 0–100. A window is reported only when its length
-// and reset are both known, so a header set never invents a window kind.
+// Used-Percent is already 0–100. A window is reported only when its reset is
+// known; missing lengths default by slot and unfamiliar lengths are ignored.
 func ParseCodexHeaders(h http.Header, now time.Time) []Window {
 	if h == nil {
 		return nil
 	}
 	var out []Window
 	seen := map[string]bool{}
-	for _, slot := range []string{"Primary", "Secondary"} {
+	for index, slot := range []string{"Primary", "Secondary"} {
 		base := "X-Codex-" + slot + "-"
 		usedRaw := strings.TrimSpace(h.Get(base + "Used-Percent"))
 		if usedRaw == "" {
@@ -125,19 +135,20 @@ func ParseCodexHeaders(h http.Header, now time.Time) []Window {
 		if err != nil || !validPercent(used) {
 			continue
 		}
-		minutes, err := strconv.ParseFloat(strings.TrimSpace(h.Get(base+"Window-Minutes")), 64)
-		if err != nil || math.IsNaN(minutes) {
-			continue
+		minutesRaw := strings.TrimSpace(h.Get(base + "Window-Minutes"))
+		var minutes float64
+		var hasMinutes bool
+		if minutesRaw != "" {
+			parsed, err := strconv.ParseFloat(minutesRaw, 64)
+			if err != nil {
+				slog.Debug("ignoring Codex quota window with unrecognized length", "window", slot, "window_minutes", minutesRaw)
+				continue
+			}
+			minutes, hasMinutes = parsed, true
 		}
-		var kind Kind
-		switch {
-		case minutes == fiveHourMinutes:
-			kind = FiveHour
-		case minutes == weekMinutes:
-			kind = Weekly
-		case minutes >= monthMinMinutes && minutes <= monthMaxMinutes:
-			kind = Monthly
-		default:
+		kind, recognized := codexWindowKind(minutes*60, hasMinutes, index)
+		if !recognized {
+			slog.Debug("ignoring Codex quota window with unrecognized length", "window", slot, "window_minutes", minutes)
 			continue
 		}
 		var reset time.Time

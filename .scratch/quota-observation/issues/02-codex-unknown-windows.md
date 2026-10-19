@@ -4,8 +4,8 @@
 
 **Blocked by:** none
 
-**Status:** open
+**Status: done** - Unknown lengths are skipped with debug logging and missing lengths default by slot in polling and headers.
 
-- [ ] Unknown lengths are skipped, not fatal
-- [ ] Missing lengths default by position
-- [ ] Tests for both
+- [x] Unknown lengths are skipped, not fatal
+- [x] Missing lengths default by position
+- [x] Tests for both
