@@ -1,6 +1,6 @@
 # Limitations
 
-Known limits of kpatdev-quota-router 1.0.0, grouped by cause. Each item says what happens and what to do about it.
+Known limits of kpatdev-quota-router 1.1.0, grouped by cause. Each item says what happens and what to do about it.
 
 ## Imposed by CPA's plugin interface
 

@@ -1,6 +1,29 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.1.0 (2026-10-20)
+
+### Added
+
+- Claude's Fable weekly limit is read from the usage `limits[]` list and the `7d_oi` headers, so Fable requests avoid accounts that have used it up.
+- Regular polls align to the clock. Extra polls run 30 s before and after each known reset.
+- A scheduled poll is skipped when response headers updated the account within `passive_skip` (default 1 m), until the last poll is older than `passive_skip_max` (default 30 m).
+- Polls use the account `proxy_url`, then environment proxies, then direct. A malformed proxy fails the poll instead of connecting directly.
+- A CPA cooldown that outlasts fresh, available quota is flagged on the dashboard and in skip reasons. It is never cleared automatically.
+- A Codex window of unfamiliar length is skipped instead of failing the poll.
+- New settings `passive_skip` (default `1m`) and `passive_skip_max` (default `30m`).
+
+### Fixed
+
+- **Claude quota polls failed on every account** once the usage response gained `seven_day_breakdown`, which was parsed as a model window (`invalid_model_window`). Claude accounts then went stale and could not take sessions. Only `seven_day_*` objects that report utilization are now treated as windows.
+- Claude polls send a Claude Code `User-Agent`.
+- The account table shows a failing poll (`Poll failing: <code>`) even after an earlier successful poll.
+
+### Changed
+
+- Polls run on clock boundaries instead of every `poll_interval` with jitter, and a provider `Retry-After` longer than 30 minutes is honoured in full.
+- Quota polls now honour proxy environment variables (`HTTPS_PROXY` and so on); they were ignored before.
+
+## 1.0.0 (2026-10-13)
 
 A rewrite of the original quota-reset-router 0.2.1 scheduler into a session-aware, quota-aware scheduler with a dashboard. Existing configuration keeps working after the [plugin ID migration](README.md#migrating-from-quota-reset-router).
 
@@ -10,21 +33,7 @@ A rewrite of the original quota-reset-router 0.2.1 scheduler into a session-awar
 - **Built against the CPA v8.0.27 SDK.** ABI 1 and schema 6 are unchanged, and the same library loads in CPA v7.3.15.
 - **New sessions skip nearly empty accounts** while another is ready (`new_session_min_remaining`, default 5 %). Set it to `0` for the original behaviour.
 
-### Fixed
-
-- **Claude quota polls failed on every account** once the usage response gained `seven_day_breakdown`, which was parsed as a model window (`invalid_model_window`). Claude accounts then went stale and could not take sessions. Only `seven_day_*` objects that report utilization are now treated as windows.
-- Claude polls send a Claude Code `User-Agent`.
-- The account table shows a failing poll (`Poll failing: <code>`) even after an earlier successful poll.
-
 ### Added
-
-- **Quota observation improvements.**
-  - Claude's Fable weekly limit is read from the usage `limits[]` list and the `7d_oi` headers, so Fable requests avoid accounts that have used it up.
-  - Regular polls align to the clock. Extra polls run 30 s before and after each known reset.
-  - A scheduled poll is skipped when response headers updated the account within `passive_skip` (default 1 m), until the last poll is older than `passive_skip_max` (default 30 m).
-  - Polls use the account `proxy_url`, then environment proxies, then direct. A malformed proxy fails the poll instead of connecting directly.
-  - A CPA cooldown that outlasts fresh, available quota is flagged on the dashboard and in skip reasons. It is never cleared automatically.
-  - A Codex window of unfamiliar length is skipped instead of failing the poll.
 
 - **Session affinity.**
   - Sessions are identified from Claude Code, Codex CLI, and generic session headers, using CPA's own precedence. A test checks parity with CPA's extractor.
