@@ -73,6 +73,7 @@ export function compact(n: number | undefined | null): string {
 const reasons: Record<string, string> = {
   quota_unknown: "No quota data yet",
   disabled: "Disabled in CPA",
+  cooldown_stale: "Fresh quota is available, but the CPA cooldown remains. Clear the cooldown in CPA",
   rate_limited: "Rate limited (temporary)",
   circuit_open: "Repeated errors; paused briefly",
   awaiting_reset_verification: "Reset passed; waiting for fresh data",

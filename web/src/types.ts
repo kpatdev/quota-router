@@ -51,6 +51,8 @@ export interface Account {
   present: boolean;
   disabled: boolean;
   unavailable: boolean;
+  cooldown_until?: string;
+  cooldown_stale: boolean;
   host_priority: number;
   plugin_priority: number;
   polled: boolean;

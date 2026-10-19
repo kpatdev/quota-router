@@ -4,4 +4,5 @@
 
 **Blocked by:** 01, 02
 
-**Status:** open
+**Status:** done
+**Note:** Added stale CPA cooldown detection, account API visibility, dashboard guidance, and decision skip reasons without clearing CPA cooldowns.
