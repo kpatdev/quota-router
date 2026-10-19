@@ -8,7 +8,9 @@
 
 **Blocked by:** none
 
-**Status:** open
+**Status:** done
 
-- [ ] Fake-clock tests for alignment, both probes, probe suppression, passive skip and its cap
-- [ ] Config reference updated
+Implemented clock-aligned polls, reset probes, bounded passive skip, config validation and docs; all requested Go checks pass.
+
+- [x] Fake-clock tests for alignment, both probes, probe suppression, passive skip and its cap
+- [x] Config reference updated

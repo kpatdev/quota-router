@@ -42,6 +42,8 @@ type Config struct {
 	Strategy                  string            `yaml:"strategy" json:"strategy"`
 	ManualPriorityBase        string            `yaml:"manual_priority_base" json:"manual_priority_base"`
 	PollInterval              time.Duration     `yaml:"poll_interval" json:"-"`
+	PassiveSkip               time.Duration     `yaml:"passive_skip" json:"-"`
+	PassiveSkipMax            time.Duration     `yaml:"passive_skip_max" json:"-"`
 	MaxAge                    time.Duration     `yaml:"max_age" json:"-"`
 	RequestTimeout            time.Duration     `yaml:"request_timeout" json:"-"`
 	PassiveQuota              bool              `yaml:"passive_quota" json:"passive_quota"`
@@ -69,6 +71,8 @@ func Default() Config {
 		Strategy:                  StrategyResetFirst,
 		ManualPriorityBase:        StrategyResetFirst,
 		PollInterval:              5 * time.Minute,
+		PassiveSkip:               time.Minute,
+		PassiveSkipMax:            30 * time.Minute,
 		MaxAge:                    10 * time.Minute,
 		RequestTimeout:            10 * time.Second,
 		PassiveQuota:              true,
@@ -179,6 +183,12 @@ func (c Config) Validate() Errors {
 	if c.PollInterval < time.Minute || c.PollInterval > time.Hour {
 		add("poll_interval", "must be between 1m and 1h")
 	}
+	if c.PassiveSkip < 0 || c.PassiveSkip > time.Hour {
+		add("passive_skip", "must be between 0s and 1h")
+	}
+	if c.PassiveSkipMax < time.Minute || c.PassiveSkipMax > 24*time.Hour {
+		add("passive_skip_max", "must be between 1m and 24h")
+	}
 	if c.MaxAge < c.PollInterval || c.MaxAge > time.Hour {
 		add("max_age", "must be between poll_interval and 1h")
 	}
@@ -271,6 +281,8 @@ func (c Config) yamlMap() map[string]any {
 		"strategy":                      c.Strategy,
 		"manual_priority_base":          c.ManualPriorityBase,
 		"poll_interval":                 c.PollInterval.String(),
+		"passive_skip":                  c.PassiveSkip.String(),
+		"passive_skip_max":              c.PassiveSkipMax.String(),
 		"max_age":                       c.MaxAge.String(),
 		"request_timeout":               c.RequestTimeout.String(),
 		"passive_quota":                 c.PassiveQuota,
@@ -326,6 +338,8 @@ func Schema() []Field {
 		{"balanced_five_hour_soft_limit", "number", nil, "50", "100", d.BalancedFiveHourSoftLimit, "Policies", "Five-hour utilization above which balanced ranks an account last.", "Affects balanced ranking.", false},
 		{"new_session_min_remaining", "number", nil, "0", "50", d.NewSessionMinRemaining, "Policies", "New sessions skip accounts with less long-window capacity left than this percentage, so a thread does not start on an account that is about to run out. Bound sessions keep using the remainder.", "Affects new sessions and failovers only.", false},
 		{"poll_interval", "duration", nil, "1m", "1h", d.PollInterval.String(), "Quota", "How often each account's quota is read.", "Takes effect at each account's next poll.", false},
+		{"passive_skip", "duration", nil, "0s", "1h", d.PassiveSkip.String(), "Quota", "Skip regular polls after recent passive quota observations; zero disables.", "Probes and manual refreshes still run.", false},
+		{"passive_skip_max", "duration", nil, "1m", "24h", d.PassiveSkipMax.String(), "Quota", "Maximum age of a successful poll before passive skip stops.", "Keeps windows without passive headers fresh.", false},
 		{"max_age", "duration", nil, "poll_interval", "1h", d.MaxAge.String(), "Quota", "Quota older than this is stale and not used to rank new sessions.", "Stale accounts stop receiving new sessions until refreshed.", false},
 		{"request_timeout", "duration", nil, "1s", "30s", d.RequestTimeout.String(), "Quota", "Timeout for one quota request.", "Next poll.", false},
 		{"passive_quota", "boolean", nil, "", "", d.PassiveQuota, "Quota", "Update quota from rate-limit headers on real responses.", "Next response.", false},

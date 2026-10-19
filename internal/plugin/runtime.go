@@ -593,6 +593,7 @@ func (p *Runtime) Usage(rec pluginapi.UsageRecord) {
 	}
 	o.Session, o.HasSession = session.FromUsage(rec.SessionID, rec.ParentSessionID, rec.APIKey)
 	r.Observe(o)
+	p.wakePoller()
 	d := rec.Detail
 	p.tel.Usage(at, provider, rec.AuthID, rec.Failed, rec.Failure.StatusCode, d.InputTokens, d.OutputTokens, d.ReasoningTokens, d.CacheReadTokens, d.CacheCreationTokens)
 }

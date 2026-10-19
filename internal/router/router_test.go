@@ -713,8 +713,8 @@ func TestPollSchedulingBackoffAndResets(t *testing.T) {
 		t.Fatalf("new account not due: %+v", due)
 	}
 	h.poll("A", weekly(10, 2*time.Minute))
-	if next := h.r.NextPollAt(); !next.Equal(t0.Add(2*time.Minute + resetPollDelay)) {
-		t.Fatalf("poll must follow the reset: %s", next)
+	if next := h.r.NextPollAt(); !next.Equal(t0.Add(2*time.Minute - probeOffset)) {
+		t.Fatalf("poll must precede the reset: %s", next)
 	}
 	h.r.ApplyPoll("A", quota.Snapshot{}, "", &quota.Error{Code: "quota_http_500", Status: 500})
 	first := h.r.NextPollAt().Sub(h.now)

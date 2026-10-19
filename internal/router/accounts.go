@@ -21,10 +21,11 @@ const (
 	modelMissingBlock  = 10 * time.Minute
 	pollBackoffBase    = time.Minute
 	pollBackoffMax     = 30 * time.Minute
-	minPollSpacing     = 30 * time.Second
 	manualRefreshEvery = 30 * time.Second
 	removedRetention   = 24 * time.Hour
-	resetPollDelay     = 5 * time.Second
+	probeOffset        = 30 * time.Second
+	probeTolerance     = 10 * time.Second
+	probeLate          = 10 * time.Minute
 )
 
 // health is per-account failure state learned from real traffic and polls.
@@ -69,6 +70,8 @@ type account struct {
 	NextPoll     time.Time
 	PollFailures int
 	PollError    string
+	ManualPoll   bool
+	PassiveAt    time.Time
 	LastPollAt   time.Time
 
 	Health health
@@ -151,7 +154,18 @@ func (r *Router) DuePolls() []PollTask {
 	now := r.now()
 	var out []PollTask
 	for _, a := range r.accounts {
-		if !a.Present || a.Disabled || a.RuntimeOnly || a.CustomURL || a.AuthIndex == "" || now.Before(a.NextPoll) {
+		if !a.Present || a.Disabled || a.RuntimeOnly || a.CustomURL || a.AuthIndex == "" {
+			continue
+		}
+		probe := r.probeAt(a, now)
+		probeDue := !probe.IsZero() && !now.Before(probe)
+		if now.Before(a.NextPoll) && !probeDue {
+			continue
+		}
+		if !probeDue && !a.ManualPoll && a.PollFailures == 0 && r.cfg.PassiveSkip > 0 &&
+			!a.PassiveAt.IsZero() && now.Sub(a.PassiveAt) < r.cfg.PassiveSkip &&
+			!a.Snapshot.PolledAt.IsZero() && now.Sub(a.Snapshot.PolledAt) < r.cfg.PassiveSkipMax {
+			a.NextPoll = r.nextPoll(a.ID, now)
 			continue
 		}
 		out = append(out, PollTask{AuthID: a.ID, AuthIndex: a.AuthIndex, Provider: a.Provider})
@@ -169,8 +183,12 @@ func (r *Router) NextPollAt() time.Time {
 		if !a.Present || a.Disabled || a.RuntimeOnly || a.CustomURL || a.AuthIndex == "" {
 			continue
 		}
-		if next.IsZero() || a.NextPoll.Before(next) {
-			next = a.NextPoll
+		at := a.NextPoll
+		if probe := r.probeAt(a, r.now()); !probe.IsZero() && probe.Before(at) {
+			at = probe
+		}
+		if next.IsZero() || at.Before(next) {
+			next = at
 		}
 	}
 	return next
@@ -187,19 +205,21 @@ func (r *Router) ApplyPoll(authID string, snap quota.Snapshot, plan string, err 
 	}
 	now := r.now()
 	a.LastPollAt = now
+	a.ManualPoll = false
 	r.dirty = true
 	if err != nil {
 		a.PollFailures++
 		a.PollError = "quota_refresh_failed"
+		var retryAfter time.Duration
 		delay := pollBackoffBase << min(a.PollFailures-1, 5)
 		if qerr, ok := quota.IsError(err); ok {
 			a.PollError = qerr.Code
-			delay = max(delay, qerr.RetryAfter)
+			retryAfter = qerr.RetryAfter
 			if qerr.AuthRejected() {
 				a.Health.PollAuthRejected = true
 			}
 		}
-		a.NextPoll = now.Add(r.jittered(min(delay, pollBackoffMax)))
+		a.NextPoll = now.Add(max(r.jittered(min(delay, pollBackoffMax)), retryAfter))
 		return
 	}
 	if a.Snapshot.Identity != "" && snap.Identity != "" && a.Snapshot.Identity != snap.Identity {
@@ -231,21 +251,38 @@ func (r *Router) ApplyPoll(authID string, snap quota.Snapshot, plan string, err 
 		a.Health.AuthFailStatus = 0
 		a.Health.AuthFailStamp = ""
 	}
-	a.NextPoll = r.nextPoll(a.Snapshot, now)
+	a.NextPoll = r.nextPoll(a.ID, now)
 }
 
-func (r *Router) nextPoll(s quota.Snapshot, now time.Time) time.Time {
-	next := now.Add(r.jittered(r.cfg.PollInterval))
-	for _, w := range s.Windows {
-		if w.ResetsAt == nil || !w.ResetsAt.After(now) {
+func (r *Router) nextPoll(id string, now time.Time) time.Time {
+	// Keep each account in a stable position within the first five seconds.
+	sum := sha256.Sum256([]byte(id))
+	offset := time.Duration(uint16(sum[0])<<8|uint16(sum[1])) * (5 * time.Second) / 65536
+	return now.Truncate(r.cfg.PollInterval).Add(r.cfg.PollInterval).Add(offset)
+}
+
+func (r *Router) probeAt(a *account, now time.Time) time.Time {
+	if a.PollFailures > 0 && now.Before(a.NextPoll) {
+		return time.Time{}
+	}
+	var next time.Time
+	for _, w := range a.Snapshot.Windows {
+		if w.ResetsAt == nil {
 			continue
 		}
-		if at := w.ResetsAt.Add(resetPollDelay); at.Before(next) {
-			next = at
+		for _, slot := range []struct{ at, until time.Time }{
+			{w.ResetsAt.Add(-probeOffset), *w.ResetsAt},
+			{w.ResetsAt.Add(probeOffset), w.ResetsAt.Add(probeLate)},
+		} {
+			if !now.Before(slot.until) || !w.ObservedAt.Before(slot.at.Add(-probeTolerance)) ||
+				!a.LastPollAt.Before(slot.at.Add(-probeTolerance)) {
+				continue
+			}
+			at := slot.at
+			if next.IsZero() || at.Before(next) {
+				next = at
+			}
 		}
-	}
-	if floor := now.Add(minPollSpacing); next.Before(floor) {
-		next = floor
 	}
 	return next
 }
@@ -271,6 +308,7 @@ func (r *Router) RequestRefresh(authID string) (int, time.Duration) {
 	for _, a := range r.accounts {
 		if (authID == "" || a.ID == authID) && a.Present {
 			a.NextPoll = now
+			a.ManualPoll = true
 			n++
 		}
 	}
@@ -314,6 +352,7 @@ func (r *Router) Observe(o Outcome) {
 		observed = kept
 	}
 	if len(observed) > 0 {
+		a.PassiveAt = r.now()
 		a.Snapshot.Provider = provider
 		a.Snapshot.MergeObserved(observed)
 		a.HasSnapshot = true
