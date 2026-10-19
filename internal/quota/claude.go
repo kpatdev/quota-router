@@ -15,6 +15,7 @@ import (
 // (seven_day_opus, seven_day_fable). Multi-word suffixes such as
 // seven_day_oauth_apps describe non-model limits and are ignored.
 var familyKey = regexp.MustCompile(`^seven_day_([a-z][a-z0-9]*)$`)
+var fableLimitName = regexp.MustCompile(`^fable(?:\s+[0-9]+)?$`)
 
 type claudeWindow struct {
 	Utilization *float64   `json:"utilization"`
@@ -60,8 +61,68 @@ func ParseClaudeUsage(raw []byte, now time.Time) (Snapshot, error) {
 			snap.Windows = append(snap.Windows, w)
 		}
 	}
+	if _, ok := doc["seven_day_fable"]; !ok {
+		if raw, ok := doc["limits"]; ok {
+			w, present, err := claudeFablePollWindow(raw, now)
+			if err != nil {
+				return Snapshot{}, errors.New("invalid_model_window")
+			}
+			if present {
+				snap.Windows = append(snap.Windows, w)
+			}
+		}
+	}
 	snap.sort()
 	return snap, nil
+}
+
+type claudeWeeklyLimit struct {
+	Kind     string          `json:"kind"`
+	Percent  json.RawMessage `json:"percent"`
+	ResetsAt json.RawMessage `json:"resets_at"`
+	IsActive bool            `json:"is_active"`
+	Scope    struct {
+		Model struct {
+			DisplayName string `json:"display_name"`
+		} `json:"model"`
+	} `json:"scope"`
+}
+
+func claudeFablePollWindow(raw json.RawMessage, now time.Time) (Window, bool, error) {
+	var limits []json.RawMessage
+	if err := json.Unmarshal(raw, &limits); err != nil {
+		return Window{}, false, nil
+	}
+	var selected *claudeWeeklyLimit
+	for _, rawLimit := range limits {
+		var limit claudeWeeklyLimit
+		if err := json.Unmarshal(rawLimit, &limit); err != nil {
+			continue
+		}
+		name := strings.ToLower(strings.TrimSpace(limit.Scope.Model.DisplayName))
+		if strings.ToLower(strings.TrimSpace(limit.Kind)) != "weekly_scoped" || !fableLimitName.MatchString(name) || len(limit.Percent) == 0 || strings.TrimSpace(string(limit.Percent)) == "null" {
+			continue
+		}
+		if selected == nil || (!selected.IsActive && limit.IsActive) {
+			selected = &limit
+		}
+	}
+	if selected == nil {
+		return Window{}, false, nil
+	}
+	var utilization float64
+	if err := json.Unmarshal(selected.Percent, &utilization); err != nil {
+		return Window{}, false, err
+	}
+	window := claudeWindow{Utilization: &utilization}
+	if len(selected.ResetsAt) != 0 && strings.TrimSpace(string(selected.ResetsAt)) != "null" {
+		var resetsAt time.Time
+		if err := json.Unmarshal(selected.ResetsAt, &resetsAt); err != nil {
+			return Window{}, false, err
+		}
+		window.ResetsAt = &resetsAt
+	}
+	return claudeWindowValue(window, ModelWeekly, "fable", now)
 }
 
 func claudePollWindow(raw json.RawMessage, kind Kind, family string, now time.Time) (Window, bool, error) {
@@ -72,6 +133,10 @@ func claudePollWindow(raw json.RawMessage, kind Kind, family string, now time.Ti
 	if err := json.Unmarshal(raw, &cw); err != nil {
 		return Window{}, false, err
 	}
+	return claudeWindowValue(cw, kind, family, now)
+}
+
+func claudeWindowValue(cw claudeWindow, kind Kind, family string, now time.Time) (Window, bool, error) {
 	if cw.Utilization == nil || !validPercent(*cw.Utilization) {
 		return Window{}, false, errors.New("invalid utilization")
 	}
@@ -125,6 +190,12 @@ func ParseClaudeHeaders(h http.Header, now time.Time) []Window {
 		used = math.Min(used, 100)
 		t := reset
 		out = append(out, Window{Kind: spec.kind, UsedPercent: used, ResetsAt: &t, Rejected: rejected, Source: SourcePassive, ObservedAt: now})
+	}
+	if reset, okReset := unixHeader(h.Get("Anthropic-Ratelimit-Unified-7d_oi-Reset")); okReset {
+		if utilization, okUtil := fractionHeader(h.Get("Anthropic-Ratelimit-Unified-7d_oi-Utilization")); okUtil && utilization <= 1 {
+			t := reset
+			out = append(out, Window{Kind: ModelWeekly, Family: "fable", UsedPercent: utilization * 100, ResetsAt: &t, Source: SourcePassive, ObservedAt: now})
+		}
 	}
 	return out
 }
